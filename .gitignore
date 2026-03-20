@@ -15,3 +15,7 @@ gunicorn.conf.py
 .dmypy.json
 ruff_tests_after_unsafe.log
 ruff_tests.log
+.coverage
+build/
+dist/
+*.egg-info/

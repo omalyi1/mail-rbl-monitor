@@ -1,0 +1,29 @@
+---
+description: Service-specific guardrails for the one-shot mail RBL monitoring architecture.
+alwaysApply: true
+---
+
+# Monitoring Service Architecture
+
+This repository is a focused mail reputation monitoring service, not a generic monitoring platform.
+
+## Runtime model
+- Keep the application as a deterministic one-shot command unless the user explicitly asks for a different runtime.
+- Prefer `cron` or `systemd` timers over in-process scheduling.
+- Do not introduce a resident worker loop, queue consumer, or API server unless explicitly required.
+
+## Scope discipline
+- Do not add a database or persistent state unless there is a concrete deduplication, audit, or compliance requirement.
+- Do not introduce Celery, Redis, Kafka, RabbitMQ, or similar orchestration infrastructure without an explicit request.
+- Avoid broad “platform” abstractions that dilute the DNSBL monitoring use case.
+
+## Service design
+- Keep DNSBL checks provider-driven and testable.
+- Keep notification channels behind adapters and ports.
+- Preserve a clean separation between configuration, domain logic, application orchestration, and infrastructure code.
+- Favor small, explicit models over generic dictionaries and catch-all utility modules.
+
+## Operational simplicity
+- Preserve deterministic execution and clear exit behavior.
+- Keep logs structured and operationally useful.
+- Never log secrets, tokens, or webhook URLs.

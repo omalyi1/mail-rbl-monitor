@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mail-rbl-monitor"
+version = "0.1.0"
+description = "One-shot DNSBL reputation monitoring bootstrap for mail server IPv4 addresses."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Repository Contributors" }]
+dependencies = [
+  "pydantic>=2.10,<3.0",
+  "pydantic-settings>=2.6,<3.0",
+]
+
+[project.scripts]
+mail-rbl-monitor = "mail_rbl_monitor.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15,<2.0",
+  "pytest>=8.3,<9.0",
+  "ruff>=0.11,<1.0",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "N", "RUF", "SIM", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mail_rbl_monitor"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.mypy]
+files = ["src", "tests"]
+mypy_path = "src"
+python_version = "3.12"
+show_error_codes = true
+strict = true
+warn_unreachable = true
