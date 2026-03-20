@@ -18,7 +18,7 @@ uv sync --group dev
 cp .env.example .env
 ```
 
-Edit `.env` with the target IPv4 addresses and DNSBL providers you want to monitor.
+Edit `.env` with the target IPv4 addresses and DNSBL providers you want to monitor. Leave `MAIL_RBL_MONITOR_DRY_RUN=true` while validating configuration locally, then switch it to `false` when you want to exercise the real DNS and notification path.
 
 ## Day-to-day commands
 
@@ -26,6 +26,12 @@ Run the dry-run bootstrap flow:
 
 ```bash
 uv run python -m mail_rbl_monitor --dry-run
+```
+
+Run the real monitoring flow:
+
+```bash
+MAIL_RBL_MONITOR_DRY_RUN=false uv run python -m mail_rbl_monitor
 ```
 
 Run tests:
@@ -55,3 +61,4 @@ Helper scripts are also available:
 - keep infrastructure behavior behind typed ports
 - avoid introducing stateful infrastructure until a concrete requirement exists
 - keep tests deterministic and free of live network calls
+- prefer mocking DNS and HTTP boundaries instead of monkeypatching domain logic

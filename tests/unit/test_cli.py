@@ -1,7 +1,9 @@
 import pytest
 
-from mail_rbl_monitor.cli import main
+from mail_rbl_monitor.cli import determine_exit_code, main
 from mail_rbl_monitor.constants import ExitCode
+from mail_rbl_monitor.domain.enums import AppEnvironment
+from mail_rbl_monitor.domain.models import AppRuntimeConfigSummary, RunSummary
 
 _ENV_KEYS = (
     "APP_ENV",
@@ -47,3 +49,21 @@ def test_cli_dry_run_success(
     assert "Loaded configuration successfully" in captured.err
     assert "Targets configured" in captured.err
     assert "Dry run complete" in captured.err
+
+
+def test_determine_exit_code_prefers_listings_over_errors() -> None:
+    run_summary = RunSummary(
+        runtime_config=AppRuntimeConfigSummary(
+            environment=AppEnvironment.TEST,
+            log_level="INFO",
+            timeout_seconds=5,
+            dry_run=False,
+            target_ips=(),
+            providers=(),
+            telegram_enabled=False,
+            discord_enabled=False,
+            enabled_channels=(),
+        ),
+    )
+
+    assert determine_exit_code(run_summary) == ExitCode.SUCCESS

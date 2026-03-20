@@ -18,12 +18,16 @@ This repository is a focused mail reputation monitoring service, not a generic m
 - Avoid broad “platform” abstractions that dilute the DNSBL monitoring use case.
 
 ## Service design
+- Use DNSBL DNS queries, not website scraping, browser automation, or HTML parsing.
 - Keep DNSBL checks provider-driven and testable.
+- Treat provider failures explicitly; do not silently downgrade DNS failures to clean results.
 - Keep notification channels behind adapters and ports.
+- Keep notification adapters thin and transport-focused; message formatting belongs outside the adapters.
 - Preserve a clean separation between configuration, domain logic, application orchestration, and infrastructure code.
 - Favor small, explicit models over generic dictionaries and catch-all utility modules.
 
 ## Operational simplicity
 - Preserve deterministic execution and clear exit behavior.
+- Do not add a database, state store, or alert deduplication unless explicitly required.
 - Keep logs structured and operationally useful.
 - Never log secrets, tokens, or webhook URLs.

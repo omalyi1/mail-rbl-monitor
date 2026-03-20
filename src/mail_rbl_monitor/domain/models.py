@@ -49,11 +49,49 @@ class DnsblProvider:
 
 
 @dataclass(frozen=True, slots=True)
-class CheckOutcome:
+class ProviderCheckResult:
     target_ip: TargetIP
     provider: DnsblProvider
+    query_name: str
     status: ListingStatus
-    response_detail: str | None = None
+    listed_addresses: tuple[str, ...] = ()
+    txt_reasons: tuple[str, ...] = ()
+    error_message: str | None = None
+    latency_ms: int | None = None
+
+    @property
+    def is_clean(self) -> bool:
+        return self.status == ListingStatus.CLEAN
+
+    @property
+    def is_listed(self) -> bool:
+        return self.status == ListingStatus.LISTED
+
+    @property
+    def is_error(self) -> bool:
+        return self.status == ListingStatus.ERROR
+
+
+@dataclass(frozen=True, slots=True)
+class TargetCheckResult:
+    target_ip: TargetIP
+    provider_results: tuple[ProviderCheckResult, ...]
+
+    @property
+    def listed_results(self) -> tuple[ProviderCheckResult, ...]:
+        return tuple(result for result in self.provider_results if result.is_listed)
+
+    @property
+    def error_results(self) -> tuple[ProviderCheckResult, ...]:
+        return tuple(result for result in self.provider_results if result.is_error)
+
+    @property
+    def has_listings(self) -> bool:
+        return bool(self.listed_results)
+
+    @property
+    def has_errors(self) -> bool:
+        return bool(self.error_results)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,3 +113,53 @@ class AppRuntimeConfigSummary:
     @property
     def provider_count(self) -> int:
         return len(self.providers)
+
+
+@dataclass(frozen=True, slots=True)
+class RunSummary:
+    runtime_config: AppRuntimeConfigSummary
+    target_results: tuple[TargetCheckResult, ...] = ()
+    notifications_sent: tuple[NotificationChannel, ...] = ()
+    alert_message: str | None = None
+
+    @property
+    def total_targets(self) -> int:
+        return self.runtime_config.target_count
+
+    @property
+    def total_provider_checks(self) -> int:
+        return sum(len(result.provider_results) for result in self.target_results)
+
+    @property
+    def listed_results(self) -> tuple[ProviderCheckResult, ...]:
+        return tuple(
+            provider_result
+            for target_result in self.target_results
+            for provider_result in target_result.provider_results
+            if provider_result.is_listed
+        )
+
+    @property
+    def error_results(self) -> tuple[ProviderCheckResult, ...]:
+        return tuple(
+            provider_result
+            for target_result in self.target_results
+            for provider_result in target_result.provider_results
+            if provider_result.is_error
+        )
+
+    @property
+    def listed_count(self) -> int:
+        return len(self.listed_results)
+
+    @property
+    def error_count(self) -> int:
+        return len(self.error_results)
+
+    @property
+    def has_listings(self) -> bool:
+        return bool(self.listed_results)
+
+    @property
+    def has_errors(self) -> bool:
+        return bool(self.error_results)

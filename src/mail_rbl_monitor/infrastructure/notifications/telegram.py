@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import httpx
+
 from mail_rbl_monitor.domain.enums import NotificationChannel
 from mail_rbl_monitor.domain.exceptions import NotificationError
 from mail_rbl_monitor.domain.ports import NotificationSenderPort
@@ -11,13 +13,38 @@ from mail_rbl_monitor.domain.ports import NotificationSenderPort
 class TelegramNotificationSender(NotificationSenderPort):
     bot_token: str
     chat_id: str
+    timeout_seconds: int
 
     @property
     def channel(self) -> NotificationChannel:
         return NotificationChannel.TELEGRAM
 
     def send(self, message: str) -> None:
-        raise NotificationError(
-            "Telegram delivery is not implemented in Phase 1. "
-            f"Refused to send message of length {len(message)}."
-        )
+        try:
+            with httpx.Client(timeout=float(self.timeout_seconds)) as client:
+                response = client.post(
+                    self._url,
+                    json={
+                        "chat_id": self.chat_id,
+                        "text": message,
+                    },
+                )
+                response.raise_for_status()
+                response_payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            raise NotificationError(
+                f"Telegram notification failed with HTTP status {exc.response.status_code}."
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise NotificationError(
+                f"Telegram notification request failed with {exc.__class__.__name__}."
+            ) from exc
+        except ValueError as exc:
+            raise NotificationError("Telegram notification returned an invalid response.") from exc
+
+        if not isinstance(response_payload, dict) or response_payload.get("ok") is False:
+            raise NotificationError("Telegram notification was rejected by the Telegram API.")
+
+    @property
+    def _url(self) -> str:
+        return f"https://api.telegram.org/bot{self.bot_token}/sendMessage"

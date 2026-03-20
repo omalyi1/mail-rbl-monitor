@@ -8,9 +8,9 @@ class AppEnvironment(StrEnum):
 
 
 class ListingStatus(StrEnum):
+    CLEAN = "clean"
     LISTED = "listed"
-    NOT_LISTED = "not_listed"
-    UNKNOWN = "unknown"
+    ERROR = "error"
 
 
 class NotificationChannel(StrEnum):

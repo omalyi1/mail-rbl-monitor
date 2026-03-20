@@ -4,7 +4,7 @@
 
 This service is meant to run as a one-shot command under an external scheduler, not as a daemon with an internal loop.
 
-Typical future execution models:
+Typical execution models:
 
 - `cron` on a small Linux host
 - `systemd` service plus `systemd` timer
@@ -15,6 +15,14 @@ Example future invocation:
 ```bash
 uv run python -m mail_rbl_monitor
 ```
+
+Example cron entry:
+
+```cron
+0 9 * * * cd /opt/mail-rbl-monitor && /usr/bin/env uv run python -m mail_rbl_monitor
+```
+
+For `systemd`, keep the service one-shot and let a timer trigger it on the desired schedule. The `ExecStart` command should call the same `uv run python -m mail_rbl_monitor` entrypoint used locally.
 
 ## Secret handling
 
@@ -31,13 +39,31 @@ Operational expectations:
 
 - startup logs should confirm the configured targets, providers, enabled channels, and dry-run state
 - secrets must never appear in logs
-- non-zero exits should be treated as configuration or runtime failures by the outer scheduler
+- non-zero exits should be interpreted according to the exit code contract below
+
+## Exit codes
+
+- `0`: completed successfully, no listings found
+- `20`: completed successfully, one or more listings found
+- `30`: completed successfully, no listings found, but one or more provider checks failed
+- `1`: invalid configuration or unrecoverable application error
+
+If the run contains both real listings and provider errors, the process exits with `20`.
+
+## Notification behavior
+
+- notifications are only sent when one or more listings are detected
+- the service sends a single plain-text alert message per run
+- Telegram and Discord remain thin transport adapters; message formatting lives in the application layer
+- provider errors alone do not trigger notifications in this phase
 
 ## High-level failure modes
 
 - invalid environment configuration, such as malformed IPv4 addresses or missing notifier credentials
 - unsupported or malformed DNSBL provider names
-- future provider resolution failures when DNS lookups are implemented
-- future notifier delivery failures when outbound adapters are implemented
+- provider resolution failures, such as timeouts, nameserver failures, or malformed provider responses
+- notifier delivery failures when Telegram or Discord rejects a request or is unreachable
+
+Provider errors are not silently treated as clean. If all checks are otherwise clean but one or more providers fail, the process exits with `30` so the outer scheduler can detect degraded coverage.
 
 The surrounding scheduler should capture stderr/stdout, surface non-zero exit codes, and alert if repeated failures occur.

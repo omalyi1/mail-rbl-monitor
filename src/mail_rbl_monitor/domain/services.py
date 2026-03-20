@@ -1,5 +1,11 @@
 from mail_rbl_monitor.domain.enums import AppEnvironment, NotificationChannel
-from mail_rbl_monitor.domain.models import AppRuntimeConfigSummary, DnsblProvider, TargetIP
+from mail_rbl_monitor.domain.models import (
+    AppRuntimeConfigSummary,
+    DnsblProvider,
+    RunSummary,
+    TargetCheckResult,
+    TargetIP,
+)
 
 
 def collect_enabled_channels(
@@ -39,4 +45,19 @@ def build_runtime_summary(
             telegram_enabled=telegram_enabled,
             discord_enabled=discord_enabled,
         ),
+    )
+
+
+def build_run_summary(
+    *,
+    runtime_config: AppRuntimeConfigSummary,
+    target_results: tuple[TargetCheckResult, ...],
+    notifications_sent: tuple[NotificationChannel, ...] = (),
+    alert_message: str | None = None,
+) -> RunSummary:
+    return RunSummary(
+        runtime_config=runtime_config,
+        target_results=target_results,
+        notifications_sent=notifications_sent,
+        alert_message=alert_message,
     )

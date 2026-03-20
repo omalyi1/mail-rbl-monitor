@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from ipaddress import IPv4Address
 from typing import Protocol
 
 from mail_rbl_monitor.domain.enums import NotificationChannel
+from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 
 
 class DnsResolverPort(Protocol):
-    def resolve_a(self, query_name: str, timeout_seconds: int) -> Sequence[IPv4Address]:
-        """Resolve A records for the supplied query name."""
+    def check_provider(
+        self, target_ip: TargetIP, provider: DnsblProvider, timeout_seconds: int
+    ) -> ProviderCheckResult:
+        """Run a single DNSBL provider check for a target IP."""
 
 
 class NotificationSenderPort(Protocol):
