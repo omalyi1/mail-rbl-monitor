@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.data/
+gcp-sa.json
+.env
+db.sqlite
+memory.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+pytest.log
+providers.yaml
+gunicorn.conf.py
+.dmypy.json
+ruff_tests_after_unsafe.log
+ruff_tests.log
