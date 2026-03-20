@@ -1,0 +1,78 @@
+---
+description: Repository-wide engineering standards for architecture, repository hygiene, naming, typing, testing, and maintainability.
+alwaysApply: true
+---
+
+# Repository Foundation
+
+Follow these rules for every task in this repository.
+
+## Core quality bar
+- Produce production-grade code, not demo-grade code.
+- Optimize for maintainability, readability, safety, testability, and operational simplicity.
+- Prefer explicitness over cleverness.
+- Prefer small, composable units over large, multi-purpose files.
+- Prefer additive, backward-compatible changes unless the user explicitly requests a breaking redesign.
+- Do not rewrite unrelated files or introduce broad churn without a clear architectural reason.
+
+## Architecture
+- Respect clear boundaries between API, application, domain, infrastructure, and shared utilities.
+- Keep transport concerns out of domain logic.
+- Keep framework-specific code at the edges.
+- Avoid “god files”, “god services”, and large utility dumping grounds.
+- Each module must have a single clear responsibility.
+- Shared abstractions must exist only when there is real duplication or a stable cross-cutting concern.
+
+## Repository hygiene
+- Preserve a clean, predictable repository layout.
+- Keep code, tests, docs, scripts, and infra in clearly named directories.
+- New modules must be placed where future contributors would naturally expect them.
+- Do not create parallel patterns for the same responsibility.
+- Prefer one canonical implementation path.
+
+## Naming and readability
+- Use descriptive, domain-meaningful names.
+- Avoid vague names such as `data`, `utils`, `helper`, `misc`, `manager`, `processor` unless they are truly precise in context.
+- Function and class names must express behavior and responsibility.
+- Variables must reveal intent.
+- Avoid unexplained magic values; extract constants when helpful.
+
+## Typing and contracts
+- New code must be strongly typed.
+- Public interfaces must have stable, explicit input/output contracts.
+- Avoid untyped dictionaries for important business flows when a typed model or schema is more appropriate.
+- Prefer schema-driven boundaries for external I/O, persistence mapping, and API payloads.
+
+## Error handling
+- Never swallow exceptions silently.
+- Use domain-appropriate exceptions and convert them at the correct boundary.
+- Error messages must be actionable, not vague.
+- Log operationally relevant failures with context, but never leak secrets.
+
+## Security
+- Never hardcode secrets, tokens, private URLs, credentials, or environment-specific sensitive values.
+- Read secrets from environment or approved secret providers.
+- Validate untrusted input at the boundary.
+- Follow least privilege in design.
+- Default to deny, then explicitly allow.
+
+## Tests and verification
+- Every meaningful change must be verifiable.
+- Add or update tests for behavior changes, bug fixes, schemas, API contracts, migrations, and edge cases.
+- Do not remove tests to make the suite pass.
+- Do not claim a refactor is safe if no verification path exists.
+
+## Documentation
+- Update docs when behavior, architecture, setup, or operating procedures change.
+- Keep examples aligned with actual code.
+- Prefer concise operational documentation over broad marketing-style prose.
+
+## Performance and operations
+- Avoid unnecessary network calls, repeated parsing, and duplicated computation.
+- Prefer predictable runtime behavior.
+- Code should be observable: logs, metrics hooks, health semantics, and error surfaces should be considered when relevant.
+
+## Change discipline
+- Make the smallest change that correctly solves the problem.
+- Preserve compatibility with existing public contracts unless instructed otherwise.
+- When changing a contract, update all call sites, tests, and docs in the same change.

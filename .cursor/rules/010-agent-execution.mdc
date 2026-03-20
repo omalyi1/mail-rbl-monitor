@@ -1,0 +1,39 @@
+---
+description: Rules for how the coding agent should plan, modify, validate, and communicate changes in this repository.
+alwaysApply: true
+---
+
+# Agent Execution Protocol
+
+## Before coding
+- First understand the local architecture and existing patterns.
+- Reuse high-quality existing patterns before introducing a new one.
+- Do not start by rewriting broad areas of the repository.
+- Infer the narrowest safe change set that solves the task.
+
+## During coding
+- Keep diffs focused and logically grouped.
+- Do not mix refactors, style churn, and functional changes unless they are inseparable.
+- Avoid placeholder implementations unless the user explicitly requests scaffolding.
+- Do not add speculative abstractions.
+- Do not introduce a new dependency unless it provides clear value and fits the stack rules.
+
+## Validation
+- Update tests or add new tests for behavioral changes.
+- Ensure imports, module boundaries, and configuration remain coherent.
+- Keep generated code consistent with linting, formatting, typing, and test expectations of the repository.
+- If a migration or schema change is introduced, include safe rollout expectations and compatibility notes in code comments or docs where appropriate.
+
+## Communication in code
+- Write code that explains itself.
+- Use comments sparingly and only where they add real value.
+- Do not write obvious comments that repeat the code.
+- When a tradeoff is important, document the tradeoff.
+
+## Forbidden behavior
+- Do not hardcode secrets.
+- Do not fabricate env vars that are not documented or aligned with repo conventions.
+- Do not replace the repo’s package manager with a different one.
+- Do not bypass type checks or tests by deleting constraints.
+- Do not silently change public API behavior.
+- Do not introduce dead code, commented-out blocks, or unused abstractions.

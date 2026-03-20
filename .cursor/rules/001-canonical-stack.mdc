@@ -1,0 +1,42 @@
+---
+description: Canonical stack defaults for new modules, services, packages, and apps in this repository.
+alwaysApply: true
+---
+
+# Canonical Stack Defaults
+
+Unless the repository already mandates a different stack, use these defaults for new work:
+
+## Python backend / services
+- Python 3.12+
+- uv for dependency and environment management
+- FastAPI for HTTP APIs when an API framework is needed
+- Pydantic v2 for schemas and settings
+- SQLAlchemy 2.x + Alembic for relational persistence
+- pytest for tests
+- Ruff for linting/formatting where the repo uses Ruff
+- mypy or pyright if the repo already uses static typing checks
+
+## Frontend / web apps
+- Next.js App Router
+- TypeScript
+- pnpm
+- src/ directory layout
+- import alias `@/*`
+- Tailwind CSS when the repo uses Tailwind
+- one repo-approved linter/formatter strategy
+- feature-oriented component structure
+
+## Monorepo conventions
+- pnpm workspace for JS/TS packages
+- clear package boundaries
+- shared libraries only when they represent real reuse
+- no duplicate app-local utility copies when a stable shared package already exists
+
+## General engineering standards
+- environment-driven configuration
+- no hardcoded secrets
+- strong typing
+- contract-first interfaces
+- tests required for meaningful behavior changes
+- additive, migration-safe changes by default

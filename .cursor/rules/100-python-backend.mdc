@@ -1,0 +1,72 @@
+---
+description: Python backend and service rules for repository structure, uv usage, typing, dependency management, testing, and package quality.
+globs:
+  - "**/*.py"
+  - "pyproject.toml"
+  - "uv.lock"
+  - ".python-version"
+  - "**/pytest.ini"
+  - "**/conftest.py"
+  - "**/tests/**/*.py"
+---
+
+# Python Backend Standards
+
+## Tooling
+- Python package and project management is standardized on `uv`.
+- Do not introduce Poetry, Pipenv, or ad-hoc `requirements.txt` workflows unless the repository already explicitly requires them.
+- Keep dependency declarations canonical and minimal.
+- Runtime and dev dependencies must be separated appropriately.
+
+## Python version and style
+- Target modern Python 3.12+ patterns unless the repository explicitly targets a different version.
+- Prefer standard library solutions when they are clear and sufficient.
+- Use dataclasses, pydantic models, enums, typed protocols, and typed collections appropriately.
+- Avoid legacy compatibility patterns for unsupported Python versions.
+
+## Typing
+- All new public functions, methods, and module-level constants must be typed.
+- Avoid `Any` unless absolutely unavoidable and justified by a boundary.
+- Prefer precise union types, protocols, literals, and typed models over loose dicts.
+- Return structured objects for important flows, not ambiguous tuples.
+
+## Project structure
+- Keep backend code organized by responsibility:
+  - API / transport layer
+  - application / orchestration layer
+  - domain layer
+  - infrastructure / adapters
+  - shared low-level utilities
+- Tests should mirror the code layout closely enough to be discoverable.
+
+## Dependency discipline
+- Add dependencies only when they are clearly justified.
+- Avoid overlapping libraries for the same concern.
+- Prefer mature, well-maintained libraries that fit the repo’s stack.
+- Never introduce a dependency when a simpler internal implementation is sufficient and low-risk.
+
+## I/O and side effects
+- Keep side effects at the edges.
+- Avoid import-time side effects.
+- Avoid global mutable state unless carefully controlled and intentional.
+- External integrations must be wrapped in explicit adapter or client layers.
+
+## Logging and errors
+- Use structured, context-rich logging when possible.
+- Never log secrets, raw credentials, or sensitive tokens.
+- Raise meaningful exceptions and translate them at API or worker boundaries.
+
+## Testing
+- Use `pytest`.
+- New behavior must be covered with focused tests.
+- Prefer deterministic unit tests first, then integration tests where appropriate.
+- Mock external systems at stable boundaries.
+- Do not over-mock pure domain code.
+
+## Performance
+- Prefer streaming, batching, and bounded memory approaches where applicable.
+- Avoid N+1 patterns, repeated parsing, and unnecessary serialization/deserialization cycles.
+
+## Scripts and commands
+- Favor documented `uv`-based commands for setup, lint, test, and local execution.
+- New scripts must be reproducible and repository-friendly.

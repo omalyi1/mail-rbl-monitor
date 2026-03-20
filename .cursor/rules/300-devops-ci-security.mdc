@@ -1,0 +1,57 @@
+---
+description: CI/CD, Docker, environment configuration, deployment, observability, and security rules for repository operations.
+globs:
+  - ".github/**/*.yml"
+  - ".github/**/*.yaml"
+  - "**/Dockerfile*"
+  - "**/docker-compose*.yml"
+  - "**/docker-compose*.yaml"
+  - "**/*.env.example"
+  - "**/infra/**/*.yml"
+  - "**/infra/**/*.yaml"
+  - "**/nginx/**/*.conf"
+  - "**/deploy/**/*.sh"
+  - "**/scripts/**/*.sh"
+---
+
+# DevOps / CI / Security Rules
+
+## Environment management
+- Secrets must never be committed.
+- Document configuration in `.env.example` or the repository’s approved configuration surface.
+- Keep env var naming consistent and grouped by subsystem.
+- New env vars must be justified, documented, and consumed from one canonical settings layer when possible.
+
+## CI/CD
+- CI must validate the repository with the native toolchain of the repo.
+- Python checks should use the repo’s `uv` workflow.
+- JS/TS checks should use the repo’s `pnpm` workflow.
+- Keep pipelines deterministic and cache-aware.
+- Avoid hidden behavior in CI scripts.
+
+## Containers and runtime
+- Use minimal, predictable container images.
+- Keep build and runtime concerns separated when possible.
+- Avoid baking secrets into images.
+- Health checks, startup assumptions, and exposed ports should be explicit.
+
+## Deployment safety
+- Favor additive rollout strategies.
+- Preserve compatibility during staged deploys where possible.
+- For schema or contract changes, think through deployment ordering and rollback safety.
+
+## Observability
+- Services should expose useful logs, health endpoints, and failure signals.
+- Logging should be structured where practical.
+- Never log secrets, raw authorization headers, or sensitive personal data.
+
+## Security
+- Default to least privilege.
+- Validate input at trust boundaries.
+- Keep authentication, authorization, and session/token handling explicit.
+- Prefer secure defaults for cookies, CORS, CSRF, and transport-related settings when relevant to the stack.
+
+## Operational scripts
+- Scripts must be idempotent where practical.
+- Script names should reflect exactly what they do.
+- Do not write destructive scripts without explicit safeguards or narrow scope.
