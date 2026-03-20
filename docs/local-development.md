@@ -20,6 +20,8 @@ cp .env.example .env
 
 Edit `.env` with the target IPv4 addresses and DNSBL providers you want to monitor. Leave `MAIL_RBL_MONITOR_DRY_RUN=true` while validating configuration locally, then switch it to `false` when you want to exercise the real DNS and notification path.
 
+For deployment-oriented examples, copy [.env.prod.example](/home/om/projects/golos/.env.prod.example) into your runtime env file instead of using `.env.example`.
+
 Optional alert context settings are also available:
 
 - `MAIL_RBL_MONITOR_HOST_LABEL`
@@ -28,6 +30,12 @@ Optional alert context settings are also available:
 - `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS`
 
 ## Day-to-day commands
+
+Validate configuration with the canonical dry-run path:
+
+```bash
+uv run mail-rbl-monitor --dry-run
+```
 
 Run the dry-run bootstrap flow:
 
@@ -82,6 +90,12 @@ MAIL_RBL_MONITOR_TARGET_IPS=136.243.71.222 \
 MAIL_RBL_MONITOR_DNSBL_PROVIDERS=zen.spamhaus.org,bl.spamcop.net \
 uv run mail-rbl-monitor
 ```
+
+Safe local testing flow for notification-enabled configs:
+
+- use `--dry-run` with placeholder notifier credentials to validate config without DNS or HTTP side effects
+- do not use real production notifier secrets in local `.env` files
+- if you need a live notifier test, use temporary credentials pointed at a test chat or webhook and run it manually outside the committed env examples
 
 ## Development expectations
 

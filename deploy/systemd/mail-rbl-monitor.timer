@@ -2,6 +2,7 @@
 Description=Run mail-rbl-monitor on a daily schedule
 
 [Timer]
+# Replace with a more specific schedule if daily is not appropriate.
 OnCalendar=daily
 Persistent=true
 RandomizedDelaySec=15m

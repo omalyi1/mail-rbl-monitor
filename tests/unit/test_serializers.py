@@ -14,7 +14,7 @@ from mail_rbl_monitor.domain.models import (
     TargetCheckResult,
     TargetIP,
 )
-from mail_rbl_monitor.presentation.serializers import serialize_run_summary
+from mail_rbl_monitor.presentation.serializers import serialize_failure, serialize_run_summary
 
 
 def _build_runtime_config(*, dry_run: bool) -> AppRuntimeConfigSummary:
@@ -152,3 +152,33 @@ def test_serialize_run_summary_provider_error_shape() -> None:
     assert summary["error_count"] == 1
     assert payload["results"][0]["provider_results"][0]["status"] == "error"
     assert payload["results"][0]["provider_results"][0]["error_kind"] == "timeout"
+
+
+def test_serialize_failure_includes_notification_failure_fields() -> None:
+    payload = serialize_failure(
+        exit_code=int(ExitCode.FAILURE),
+        error_type="notification_error",
+        error_message="Discord notification delivery failed.",
+        checked_at_utc="2026-03-20T09:00:00Z",
+        environment="prod",
+        dry_run=False,
+        host_label="mail-01",
+        targets=["136.243.71.222"],
+        providers=["zen.spamhaus.org"],
+        stage="notification",
+        failed_channel=NotificationChannel.DISCORD,
+        attempted_notification_channels=(
+            NotificationChannel.TELEGRAM,
+            NotificationChannel.DISCORD,
+        ),
+        notifications_sent_before_failure=(NotificationChannel.TELEGRAM,),
+    )
+
+    error = payload["error"]
+
+    assert error is not None
+    assert error["type"] == "notification_error"
+    assert error["stage"] == "notification"
+    assert error["failed_channel"] == "discord"
+    assert error["attempted_notification_channels"] == ["telegram", "discord"]
+    assert error["notifications_sent_before_failure"] == ["telegram"]

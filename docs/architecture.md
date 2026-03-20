@@ -4,7 +4,7 @@
 
 This service is designed as a deterministic one-shot command instead of a long-running worker. That keeps execution simple, makes failures easy to reason about, and pairs naturally with `cron` or `systemd` timers. The application starts, validates configuration, performs its work, emits logs or JSON output, and exits.
 
-That shape remains the right fit in Phase 3 because the workflow is still bounded and deterministic: load config, perform DNSBL checks, optionally send notifications, emit operator-facing output, and exit.
+That shape remains the right fit in Phase 4 because the workflow is still bounded and deterministic: load config, perform DNSBL checks, optionally send notifications, emit operator-facing output, and exit.
 
 ## Layered boundaries
 
@@ -41,7 +41,7 @@ Phase 3 adds controlled operator context:
 
 This context is resolved once for each run, then propagated through the run summary so human alerts and JSON output describe the same execution.
 
-Secrets are never logged or serialized.
+Secrets are never logged or serialized. Phase 4 adds explicit secret redaction at operator-facing failure boundaries so JSON output and failure logs remain safe even if an upstream error message includes a configured token or webhook URL.
 
 ## Execution flow
 
@@ -55,7 +55,8 @@ The main execution path lives in `application/run_check.py`:
 6. Use the DNS adapter to classify the result as `clean`, `listed`, or `error`.
 7. Aggregate provider results into target-level and run-level summaries.
 8. If listings are present, format a single plain-text alert and send it through enabled notification adapters.
-9. Return a structured run summary that the CLI can map to exit codes and optional JSON output.
+9. If notification delivery fails, treat the run as failed instead of pretending the alert was delivered successfully.
+10. Return a structured run summary that the CLI can map to exit codes and optional JSON output.
 
 ## DNS and provider behavior
 
@@ -96,6 +97,8 @@ The service now exposes two operator-facing output styles:
 - stable JSON on stdout when `--json` is requested
 
 This split keeps logs useful for day-to-day inspection while giving `cron`, `systemd`, CI, and wrapper scripts a stable machine-readable contract.
+
+Notification failure remains fatal by design. If a listing is found but the alert path fails, the service exits with `1` because operators should never interpret that run as fully successful. Phase 4 adds explicit notification failure accounting so partial delivery is visible without weakening that failure contract.
 
 ## Extensibility path
 

@@ -170,6 +170,16 @@ class Settings(BaseSettings):
     def apply_cli_overrides(self, *, dry_run: bool) -> Settings:
         return self.model_validate({**self.model_dump(), "dry_run": dry_run})
 
+    def operator_secret_values(self) -> tuple[str, ...]:
+        secret_values: list[str] = []
+
+        if self.telegram_bot_token is not None:
+            secret_values.append(self.telegram_bot_token.get_secret_value())
+        if self.discord_webhook_url is not None:
+            secret_values.append(self.discord_webhook_url.get_secret_value())
+
+        return tuple(value for value in secret_values if value)
+
     def to_runtime_summary(self) -> AppRuntimeConfigSummary:
         return build_runtime_summary(
             environment=self.app_env,

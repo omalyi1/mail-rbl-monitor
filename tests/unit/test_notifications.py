@@ -43,8 +43,10 @@ def test_telegram_sender_raises_notification_error_on_non_2xx() -> None:
         timeout_seconds=5,
     )
 
-    with pytest.raises(NotificationError, match="HTTP status 500"):
+    with pytest.raises(NotificationError, match="delivery failed with HTTP status 500") as exc_info:
         sender.send("listing detected")
+
+    assert "secret-token" not in str(exc_info.value)
 
 
 @respx.mock
@@ -72,5 +74,26 @@ def test_discord_sender_raises_notification_error_on_non_2xx() -> None:
         timeout_seconds=5,
     )
 
-    with pytest.raises(NotificationError, match="HTTP status 500"):
+    with pytest.raises(NotificationError, match="delivery failed with HTTP status 500") as exc_info:
         sender.send("listing detected")
+
+    assert "https://discord.example/webhook" not in str(exc_info.value)
+
+
+@respx.mock
+def test_discord_sender_raises_secret_safe_notification_error_on_transport_failure() -> None:
+    respx.post("https://discord.example/secret-webhook").mock(
+        side_effect=httpx.ConnectError(
+            "boom https://discord.example/secret-webhook",
+            request=httpx.Request("POST", "https://discord.example/secret-webhook"),
+        )
+    )
+    sender = DiscordNotificationSender(
+        webhook_url="https://discord.example/secret-webhook",
+        timeout_seconds=5,
+    )
+
+    with pytest.raises(NotificationError) as exc_info:
+        sender.send("listing detected")
+
+    assert "https://discord.example/secret-webhook" not in str(exc_info.value)

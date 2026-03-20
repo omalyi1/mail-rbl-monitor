@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from mail_rbl_monitor import __version__
 from mail_rbl_monitor.constants import APP_NAME
+from mail_rbl_monitor.domain.enums import NotificationChannel
 from mail_rbl_monitor.domain.models import RunSummary
 from mail_rbl_monitor.infrastructure.providers.catalog import get_provider_metadata
 
@@ -37,6 +38,10 @@ class SummaryPayload(TypedDict):
 class FailurePayload(TypedDict):
     type: str
     message: str
+    stage: NotRequired[str]
+    failed_channel: NotRequired[str]
+    attempted_notification_channels: NotRequired[list[str]]
+    notifications_sent_before_failure: NotRequired[list[str]]
 
 
 class RunPayload(TypedDict):
@@ -113,7 +118,28 @@ def serialize_failure(
     host_label: str | None,
     targets: list[str],
     providers: list[str],
+    stage: str | None = None,
+    failed_channel: NotificationChannel | None = None,
+    attempted_notification_channels: tuple[NotificationChannel, ...] = (),
+    notifications_sent_before_failure: tuple[NotificationChannel, ...] = (),
 ) -> RunPayload:
+    error_payload: FailurePayload = {
+        "type": error_type,
+        "message": error_message,
+    }
+    if stage is not None:
+        error_payload["stage"] = stage
+    if failed_channel is not None:
+        error_payload["failed_channel"] = failed_channel.value
+    if attempted_notification_channels:
+        error_payload["attempted_notification_channels"] = [
+            channel.value for channel in attempted_notification_channels
+        ]
+    if notifications_sent_before_failure:
+        error_payload["notifications_sent_before_failure"] = [
+            channel.value for channel in notifications_sent_before_failure
+        ]
+
     return {
         "app": APP_NAME,
         "version": __version__,
@@ -126,10 +152,7 @@ def serialize_failure(
         "summary": None,
         "results": [],
         "exit_code": exit_code,
-        "error": {
-            "type": error_type,
-            "message": error_message,
-        },
+        "error": error_payload,
     }
 
 

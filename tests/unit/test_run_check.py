@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import pytest
+
 from mail_rbl_monitor.application.run_check import run_check
 from mail_rbl_monitor.cli import determine_exit_code
 from mail_rbl_monitor.config import Settings
@@ -12,6 +14,7 @@ from mail_rbl_monitor.domain.enums import (
     NotificationChannel,
     ProviderErrorKind,
 )
+from mail_rbl_monitor.domain.exceptions import NotificationError
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 from mail_rbl_monitor.infrastructure.dns.resolver import build_dnsbl_query_name
 
@@ -39,6 +42,19 @@ class FakeNotificationSender:
 
     def send(self, message: str) -> None:
         self.sent_messages.append(message)
+
+
+@dataclass(slots=True)
+class FailingNotificationSender:
+    _channel: NotificationChannel
+    error_message: str
+
+    @property
+    def channel(self) -> NotificationChannel:
+        return self._channel
+
+    def send(self, message: str) -> None:
+        raise NotificationError(self.error_message, failed_channel=self.channel)
 
 
 def _build_settings(
@@ -160,3 +176,72 @@ def test_application_provider_error_only_run_returns_degraded_exit_code() -> Non
     assert summary.error_results[0].error_kind == ProviderErrorKind.TIMEOUT
     assert sender.sent_messages == []
     assert determine_exit_code(summary) == ExitCode.PROVIDER_ERRORS
+
+
+def test_application_notification_failure_tracks_partial_delivery_and_redacts_secrets(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    discord_webhook_url = "https://discord.example/webhook/super-secret"
+    settings = Settings.model_validate(
+        {
+            "app_env": AppEnvironment.TEST,
+            "app_log_level": "INFO",
+            "target_ips": ["136.243.71.222"],
+            "dnsbl_providers": ["zen.spamhaus.org"],
+            "enable_telegram": True,
+            "telegram_bot_token": "telegram-token",
+            "telegram_chat_id": "123456",
+            "enable_discord": True,
+            "discord_webhook_url": discord_webhook_url,
+            "timeout_seconds": 5,
+            "dry_run": False,
+        }
+    )
+    resolver = FakeDnsResolver(
+        {
+            ("136.243.71.222", "zen.spamhaus.org"): _build_provider_result(
+                status=ListingStatus.LISTED,
+                listed_addresses=("127.0.0.2",),
+            )
+        }
+    )
+    telegram_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+    discord_sender = FailingNotificationSender(
+        NotificationChannel.DISCORD,
+        f"Discord notification delivery failed for webhook {discord_webhook_url}.",
+    )
+
+    caplog.set_level("INFO", logger="mail_rbl_monitor.run_check")
+
+    with pytest.raises(NotificationError) as exc_info:
+        run_check(
+            settings,
+            dns_resolver=resolver,
+            notification_senders=(telegram_sender, discord_sender),
+        )
+
+    error = exc_info.value
+
+    assert error.failed_channel == NotificationChannel.DISCORD
+    assert error.attempted_notification_channels == (
+        NotificationChannel.TELEGRAM,
+        NotificationChannel.DISCORD,
+    )
+    assert error.notifications_sent_before_failure == (NotificationChannel.TELEGRAM,)
+    assert str(error).startswith("Discord notification delivery failed")
+    assert "[REDACTED]" in str(error)
+    assert discord_webhook_url not in str(error)
+    assert telegram_sender.sent_messages
+    assert discord_webhook_url not in caplog.text
+
+    failure_record = next(
+        record
+        for record in caplog.records
+        if getattr(record, "event", None) == "notification.failed"
+    )
+    assert getattr(failure_record, "failed_channel", None) == "discord"
+    assert getattr(failure_record, "attempted_notification_channels", None) == [
+        "telegram",
+        "discord",
+    ]
+    assert getattr(failure_record, "notifications_sent_before_failure", None) == ["telegram"]

@@ -1,4 +1,4 @@
-from mail_rbl_monitor.domain.enums import ProviderErrorKind
+from mail_rbl_monitor.domain.enums import NotificationChannel, ProviderErrorKind
 
 
 class MailRblMonitorError(Exception):
@@ -19,3 +19,18 @@ class ProviderResolutionError(MailRblMonitorError):
 
 class NotificationError(MailRblMonitorError):
     """Raised when a notification channel cannot deliver a message."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stage: str = "notification",
+        failed_channel: NotificationChannel | None = None,
+        attempted_notification_channels: tuple[NotificationChannel, ...] = (),
+        notifications_sent_before_failure: tuple[NotificationChannel, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.failed_channel = failed_channel
+        self.attempted_notification_channels = attempted_notification_channels
+        self.notifications_sent_before_failure = notifications_sent_before_failure

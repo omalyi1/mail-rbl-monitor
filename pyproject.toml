@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mail-rbl-monitor"
 version = "0.1.0"
-description = "One-shot DNSBL reputation monitoring bootstrap for mail server IPv4 addresses."
+description = "One-shot DNSBL reputation monitor for mail server IPv4 addresses."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Repository Contributors" }]

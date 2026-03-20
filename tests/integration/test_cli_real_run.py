@@ -8,6 +8,7 @@ import pytest
 from mail_rbl_monitor.cli import main
 from mail_rbl_monitor.constants import ExitCode
 from mail_rbl_monitor.domain.enums import ListingStatus, NotificationChannel
+from mail_rbl_monitor.domain.exceptions import NotificationError
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 from mail_rbl_monitor.infrastructure.dns.resolver import build_dnsbl_query_name
 
@@ -54,6 +55,19 @@ class FakeNotificationSender:
 
     def send(self, message: str) -> None:
         self.sent_messages.append(message)
+
+
+@dataclass(slots=True)
+class FailingNotificationSender:
+    _channel: NotificationChannel
+    error_message: str
+
+    @property
+    def channel(self) -> NotificationChannel:
+        return self._channel
+
+    def send(self, message: str) -> None:
+        raise NotificationError(self.error_message, failed_channel=self.channel)
 
 
 def _set_real_run_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -144,3 +158,55 @@ def test_cli_json_real_run_returns_valid_json_and_hides_secrets(
     assert payload["summary"]["notifications_sent"] == ["telegram"]
     assert payload["results"][0]["provider_results"][0]["provider_display_name"] == "Spamhaus ZEN"
     assert "telegram-token" not in captured.out
+
+
+def test_cli_json_notification_failure_returns_failure_payload_without_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    discord_webhook_url = "https://discord.example/webhook/super-secret"
+    _set_real_run_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_DISCORD", "true")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL", discord_webhook_url)
+
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    result = ProviderCheckResult(
+        target_ip=target_ip,
+        provider=provider,
+        query_name=build_dnsbl_query_name(target_ip.value, provider.name),
+        status=ListingStatus.LISTED,
+        listed_addresses=("127.0.0.2",),
+        latency_ms=10,
+    )
+    fake_resolver = FakeDnsResolver(result)
+    telegram_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+    discord_sender = FailingNotificationSender(
+        NotificationChannel.DISCORD,
+        f"Discord notification delivery failed for webhook {discord_webhook_url}.",
+    )
+
+    monkeypatch.setattr(
+        "mail_rbl_monitor.application.run_check.DnsblResolver", lambda: fake_resolver
+    )
+    monkeypatch.setattr(
+        "mail_rbl_monitor.application.run_check._build_notification_senders",
+        lambda settings: (telegram_sender, discord_sender),
+    )
+
+    exit_code = main(["--json"])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    error = payload["error"]
+
+    assert exit_code == ExitCode.FAILURE
+    assert payload["exit_code"] == 1
+    assert error["type"] == "notification_error"
+    assert error["stage"] == "notification"
+    assert error["failed_channel"] == "discord"
+    assert error["attempted_notification_channels"] == ["telegram", "discord"]
+    assert error["notifications_sent_before_failure"] == ["telegram"]
+    assert "telegram-token" not in captured.out
+    assert discord_webhook_url not in captured.out
+    assert "telegram-token" not in captured.err
+    assert discord_webhook_url not in captured.err

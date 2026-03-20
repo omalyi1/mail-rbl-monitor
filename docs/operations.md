@@ -29,6 +29,8 @@ For `systemd`, keep the service one-shot and let a timer trigger it on the desir
 
 The service template is `Type=oneshot` and uses placeholders for the runtime user, group, working directory, and environment file. Keep the `ExecStart` command aligned with the same `uv run mail-rbl-monitor` entrypoint used locally.
 
+For installation and operational commands, use [deploy/systemd/README.md](/home/om/projects/golos/deploy/systemd/README.md).
+
 ## Secret handling
 
 - keep `.env` out of version control
@@ -62,6 +64,8 @@ The JSON payload includes:
 - exit code
 - error information for configuration or unrecoverable application failures
 
+Notification failure payloads also include the attempted channels, the channels sent before failure, the failed channel, and the failure stage.
+
 JSON output does not include secrets, raw notifier credentials, or transport internals.
 
 ## Exit codes
@@ -72,6 +76,29 @@ JSON output does not include secrets, raw notifier credentials, or transport int
 - `1`: invalid configuration or unrecoverable application error
 
 If the run contains both real listings and provider errors, the process exits with `20`.
+
+## Operational outcomes
+
+### Listing found
+
+- the run exits with `20`
+- the alert message is sent through the enabled notifiers
+- if notification delivery fails, the run instead exits with `1`
+
+### Provider errors only
+
+- the run exits with `30`
+- the target IPs must not be treated as clean
+- inspect the provider `error_kind` values before deciding whether to re-run
+
+### Notification failure
+
+- the run exits with `1`
+- inspect the logs or JSON output for:
+  - `failed_channel`
+  - `attempted_notification_channels`
+  - `notifications_sent_before_failure`
+- use [docs/runbook.md](/home/om/projects/golos/docs/runbook.md) for follow-up steps
 
 ## Notification behavior
 
@@ -102,4 +129,10 @@ Provider failures are classified explicitly so degraded runs are easier to inter
 
 Provider errors are not silently treated as clean. If all checks are otherwise clean but one or more providers fail, the process exits with `30` so the outer scheduler can detect degraded coverage.
 
-The surrounding scheduler should capture stderr/stdout, surface non-zero exit codes, and alert if repeated failures occur.
+The surrounding scheduler should capture stderr/stdout, surface non-zero exit codes, and alert if repeated failures occur. For `systemd`, inspect:
+
+- `systemctl status mail-rbl-monitor.service`
+- `systemctl status mail-rbl-monitor.timer`
+- `journalctl -u mail-rbl-monitor.service`
+
+See [docs/runbook.md](/home/om/projects/golos/docs/runbook.md) and [docs/security.md](/home/om/projects/golos/docs/security.md) for the deployment and response workflow.

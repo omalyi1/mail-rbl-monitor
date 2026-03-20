@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from mail_rbl_monitor.application.formatters import format_listing_alert
 from mail_rbl_monitor.config import Settings
 from mail_rbl_monitor.domain.enums import NotificationChannel
+from mail_rbl_monitor.domain.exceptions import NotificationError
 from mail_rbl_monitor.domain.models import (
     AppRuntimeConfigSummary,
     ProviderCheckResult,
@@ -19,6 +20,7 @@ from mail_rbl_monitor.domain.services import build_run_summary, current_utc_time
 from mail_rbl_monitor.infrastructure.dns.resolver import DnsblResolver
 from mail_rbl_monitor.infrastructure.notifications.discord import DiscordNotificationSender
 from mail_rbl_monitor.infrastructure.notifications.telegram import TelegramNotificationSender
+from mail_rbl_monitor.presentation.redaction import sanitize_operator_error_message
 
 
 def run_check(
@@ -71,6 +73,7 @@ def run_check(
             message=alert_message,
             senders=senders,
             logger=logger,
+            secret_values=settings.operator_secret_values(),
         )
         run_summary = build_run_summary(
             runtime_config=summary,
@@ -238,8 +241,10 @@ def _send_notifications(
     message: str,
     senders: Sequence[NotificationSenderPort],
     logger: logging.Logger,
+    secret_values: Sequence[str],
 ) -> tuple[NotificationChannel, ...]:
     notifications_sent: list[NotificationChannel] = []
+    attempted_channels = tuple(sender.channel for sender in senders)
 
     if not senders:
         logger.warning(
@@ -249,7 +254,36 @@ def _send_notifications(
         return ()
 
     for sender in senders:
-        sender.send(message)
+        try:
+            sender.send(message)
+        except NotificationError as exc:
+            enriched_error = NotificationError(
+                sanitize_operator_error_message(
+                    str(exc),
+                    secret_values=secret_values,
+                    fallback=_notification_failure_message(sender.channel),
+                ),
+                stage=exc.stage,
+                failed_channel=exc.failed_channel or sender.channel,
+                attempted_notification_channels=(
+                    exc.attempted_notification_channels or attempted_channels
+                ),
+                notifications_sent_before_failure=(
+                    exc.notifications_sent_before_failure or tuple(notifications_sent)
+                ),
+            )
+            _log_notification_failure(error=enriched_error, logger=logger)
+            raise enriched_error from exc
+        except Exception as exc:
+            enriched_error = NotificationError(
+                _notification_failure_message(sender.channel),
+                failed_channel=sender.channel,
+                attempted_notification_channels=attempted_channels,
+                notifications_sent_before_failure=tuple(notifications_sent),
+            )
+            _log_notification_failure(error=enriched_error, logger=logger)
+            raise enriched_error from exc
+
         notifications_sent.append(sender.channel)
         logger.info(
             "Alert notification sent",
@@ -260,6 +294,28 @@ def _send_notifications(
         )
 
     return tuple(notifications_sent)
+
+
+def _log_notification_failure(*, error: NotificationError, logger: logging.Logger) -> None:
+    logger.error(
+        "Alert notification failed",
+        extra={
+            "event": "notification.failed",
+            "attempted_notification_channels": [
+                channel.value for channel in error.attempted_notification_channels
+            ],
+            "failed_channel": error.failed_channel.value if error.failed_channel else None,
+            "notifications_sent_before_failure": [
+                channel.value for channel in error.notifications_sent_before_failure
+            ],
+            "stage": error.stage,
+            "error": str(error),
+        },
+    )
+
+
+def _notification_failure_message(channel: NotificationChannel) -> str:
+    return f"{channel.value.capitalize()} notification delivery failed."
 
 
 def _resolve_host_label(summary: AppRuntimeConfigSummary) -> str | None:

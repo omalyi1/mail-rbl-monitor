@@ -28,9 +28,14 @@ class DiscordNotificationSender(NotificationSenderPort):
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise NotificationError(
-                f"Discord notification failed with HTTP status {exc.response.status_code}."
+                (
+                    "Discord notification delivery failed with "
+                    f"HTTP status {exc.response.status_code}."
+                ),
+                failed_channel=self.channel,
             ) from exc
         except httpx.HTTPError as exc:
             raise NotificationError(
-                f"Discord notification request failed with {exc.__class__.__name__}."
+                f"Discord notification delivery failed with {exc.__class__.__name__}.",
+                failed_channel=self.channel,
             ) from exc

@@ -1,7 +1,12 @@
 import pytest
 
-from mail_rbl_monitor.domain.enums import AppEnvironment, ListingStatus, ProviderErrorKind
-from mail_rbl_monitor.domain.exceptions import ConfigurationError
+from mail_rbl_monitor.domain.enums import (
+    AppEnvironment,
+    ListingStatus,
+    NotificationChannel,
+    ProviderErrorKind,
+)
+from mail_rbl_monitor.domain.exceptions import ConfigurationError, NotificationError
 from mail_rbl_monitor.domain.models import (
     AppRuntimeConfigSummary,
     DnsblProvider,
@@ -86,3 +91,23 @@ def test_run_summary_reports_listing_and_error_counts() -> None:
     assert run_summary.has_errors is True
     assert run_summary.host_label == "mail-01"
     assert run_summary.checked_at_utc == "2026-03-20T09:00:00Z"
+
+
+def test_notification_error_preserves_failure_accounting() -> None:
+    error = NotificationError(
+        "Discord notification delivery failed.",
+        failed_channel=NotificationChannel.DISCORD,
+        attempted_notification_channels=(
+            NotificationChannel.TELEGRAM,
+            NotificationChannel.DISCORD,
+        ),
+        notifications_sent_before_failure=(NotificationChannel.TELEGRAM,),
+    )
+
+    assert error.stage == "notification"
+    assert error.failed_channel == NotificationChannel.DISCORD
+    assert error.attempted_notification_channels == (
+        NotificationChannel.TELEGRAM,
+        NotificationChannel.DISCORD,
+    )
+    assert error.notifications_sent_before_failure == (NotificationChannel.TELEGRAM,)

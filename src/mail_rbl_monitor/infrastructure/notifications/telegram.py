@@ -33,17 +33,28 @@ class TelegramNotificationSender(NotificationSenderPort):
                 response_payload = response.json()
         except httpx.HTTPStatusError as exc:
             raise NotificationError(
-                f"Telegram notification failed with HTTP status {exc.response.status_code}."
+                (
+                    "Telegram notification delivery failed with "
+                    f"HTTP status {exc.response.status_code}."
+                ),
+                failed_channel=self.channel,
             ) from exc
         except httpx.HTTPError as exc:
             raise NotificationError(
-                f"Telegram notification request failed with {exc.__class__.__name__}."
+                f"Telegram notification delivery failed with {exc.__class__.__name__}.",
+                failed_channel=self.channel,
             ) from exc
         except ValueError as exc:
-            raise NotificationError("Telegram notification returned an invalid response.") from exc
+            raise NotificationError(
+                "Telegram notification delivery returned an invalid response.",
+                failed_channel=self.channel,
+            ) from exc
 
         if not isinstance(response_payload, dict) or response_payload.get("ok") is False:
-            raise NotificationError("Telegram notification was rejected by the Telegram API.")
+            raise NotificationError(
+                "Telegram notification delivery was rejected by the Telegram API.",
+                failed_channel=self.channel,
+            )
 
     @property
     def _url(self) -> str:
