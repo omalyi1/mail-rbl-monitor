@@ -22,7 +22,7 @@ from mail_rbl_monitor.constants import (
 )
 from mail_rbl_monitor.domain.enums import AppEnvironment
 from mail_rbl_monitor.domain.exceptions import ConfigurationError
-from mail_rbl_monitor.domain.models import DnsblProvider, TargetIP
+from mail_rbl_monitor.domain.models import DnsblProvider, OperatorAlertContext, TargetIP
 from mail_rbl_monitor.domain.services import build_runtime_summary
 
 _ALLOWED_LOG_LEVELS = frozenset({"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"})
@@ -52,6 +52,7 @@ class Settings(BaseSettings):
         env_prefix="MAIL_RBL_MONITOR_",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
         validate_default=True,
     )
 
@@ -67,6 +68,10 @@ class Settings(BaseSettings):
     telegram_chat_id: str | None = None
     enable_discord: bool = False
     discord_webhook_url: SecretStr | None = None
+    host_label: str | None = None
+    include_hostname_in_alerts: bool = True
+    include_environment_in_alerts: bool = True
+    include_utc_timestamp_in_alerts: bool = True
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     dry_run: bool = True
 
@@ -125,7 +130,13 @@ class Settings(BaseSettings):
 
         return normalized
 
-    @field_validator("telegram_bot_token", "telegram_chat_id", "discord_webhook_url", mode="before")
+    @field_validator(
+        "telegram_bot_token",
+        "telegram_chat_id",
+        "discord_webhook_url",
+        "host_label",
+        mode="before",
+    )
     @classmethod
     def normalize_optional_credentials(cls, value: object) -> object:
         return _blank_to_none(value)
@@ -169,6 +180,12 @@ class Settings(BaseSettings):
             providers=tuple(DnsblProvider.from_raw(item) for item in self.dnsbl_providers),
             telegram_enabled=self.enable_telegram,
             discord_enabled=self.enable_discord,
+            alert_context=OperatorAlertContext(
+                host_label=self.host_label,
+                include_hostname_in_alerts=self.include_hostname_in_alerts,
+                include_environment_in_alerts=self.include_environment_in_alerts,
+                include_utc_timestamp_in_alerts=self.include_utc_timestamp_in_alerts,
+            ),
         )
 
 

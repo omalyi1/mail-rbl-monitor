@@ -1,10 +1,11 @@
 import pytest
 
-from mail_rbl_monitor.domain.enums import AppEnvironment, ListingStatus
+from mail_rbl_monitor.domain.enums import AppEnvironment, ListingStatus, ProviderErrorKind
 from mail_rbl_monitor.domain.exceptions import ConfigurationError
 from mail_rbl_monitor.domain.models import (
     AppRuntimeConfigSummary,
     DnsblProvider,
+    OperatorAlertContext,
     ProviderCheckResult,
     RunSummary,
     TargetCheckResult,
@@ -42,9 +43,17 @@ def test_run_summary_reports_listing_and_error_counts() -> None:
         telegram_enabled=False,
         discord_enabled=False,
         enabled_channels=(),
+        alert_context=OperatorAlertContext(
+            host_label="mail-01",
+            include_hostname_in_alerts=True,
+            include_environment_in_alerts=True,
+            include_utc_timestamp_in_alerts=True,
+        ),
     )
     run_summary = RunSummary(
         runtime_config=runtime_config,
+        checked_at_utc="2026-03-20T09:00:00Z",
+        host_label="mail-01",
         target_results=(
             TargetCheckResult(
                 target_ip=target_ip,
@@ -62,6 +71,7 @@ def test_run_summary_reports_listing_and_error_counts() -> None:
                         query_name="222.71.243.136.zen.spamhaus.org",
                         status=ListingStatus.ERROR,
                         error_message="DNS query timed out.",
+                        error_kind=ProviderErrorKind.TIMEOUT,
                     ),
                 ),
             ),
@@ -74,3 +84,5 @@ def test_run_summary_reports_listing_and_error_counts() -> None:
     assert run_summary.error_count == 1
     assert run_summary.has_listings is True
     assert run_summary.has_errors is True
+    assert run_summary.host_label == "mail-01"
+    assert run_summary.checked_at_utc == "2026-03-20T09:00:00Z"

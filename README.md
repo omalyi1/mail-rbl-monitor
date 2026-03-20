@@ -1,12 +1,12 @@
 # mail-rbl-monitor
 
-`mail-rbl-monitor` is a lightweight Python service for checking whether configured mail server IPv4 addresses appear in DNS-based block lists (DNSBL/RBL providers). The service is intentionally built as a deterministic one-shot command so it can be triggered later by `cron` or a `systemd` timer without embedding a scheduler into the application itself.
+`mail-rbl-monitor` is a lightweight Python service for checking whether configured mail server IPv4 addresses appear in DNS-based block lists (DNSBL/RBL providers). The service stays intentionally deterministic and one-shot so it fits cleanly under `cron`, `systemd` timers, CI jobs, or other external schedulers.
 
-This project prefers DNSBL lookups over paid REST wrappers because DNSBLs are natively queried through DNS, which keeps the check path transparent, avoids needless vendor lock-in, and keeps the runtime surface small. The application performs direct DNS queries instead of website scraping or browser automation.
+This project prefers DNSBL lookups over paid REST wrappers because DNSBLs are queried natively through DNS. That keeps the check path transparent, avoids vendor lock-in, and keeps the runtime surface small. The application performs direct DNS queries rather than website scraping or browser automation.
 
-## Phase 2 scope
+## Phase 3 scope
 
-Phase 2 delivers the real monitoring flow on top of the Phase 1 foundation:
+Phase 3 hardens the existing Phase 2 monitoring flow for real operations:
 
 - `uv`-based Python 3.12+ workflow
 - `src/` package layout with layered boundaries
@@ -15,17 +15,18 @@ Phase 2 delivers the real monitoring flow on top of the Phase 1 foundation:
 - real DNSBL A/TXT lookups with `dnspython`
 - real Telegram and Discord delivery adapters with `httpx`
 - provider-driven results for clean, listed, and provider-error states
-- deterministic dry-run behavior with no DNS or HTTP side effects
-- deterministic tests, docs, scripts, and Cursor rules
+- stable `--json` output for schedulers and scripts
+- concise alert context with environment, host, and UTC timestamp controls
+- systemd templates, docs, scripts, and tests aligned with production use
 
-Still intentionally deferred: retries, persistence, deduplication, scheduler logic, and any API/UI surface.
+Still intentionally deferred: retries, persistence, deduplication, scheduler logic inside Python, and any API or UI surface.
 
 ## Quickstart
 
 ```bash
 uv sync --group dev
 cp .env.example .env
-uv run python -m mail_rbl_monitor --dry-run
+uv run mail-rbl-monitor --dry-run
 ```
 
 Useful commands:
@@ -35,7 +36,7 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
-uv run python -m mail_rbl_monitor --help
+uv run mail-rbl-monitor --help
 ```
 
 ## How DNSBL detection works
@@ -46,41 +47,60 @@ For each configured target IPv4 address and provider:
 2. Query the resulting DNS name for `A` records.
 3. If one or more `A` records are returned, classify the target as `listed`.
 4. If the provider returns `NXDOMAIN`, classify the target as `clean`.
-5. If the provider times out, returns `NoAnswer`, or otherwise fails to answer cleanly, classify the provider check as `error`.
+5. If the provider times out, returns `NoAnswer`, loses nameserver availability, or otherwise fails to answer cleanly, classify the provider check as `error`.
 6. If listed, attempt a best-effort `TXT` lookup for human-readable detail.
 
-Provider errors are not silently treated as clean.
+Provider failures are never silently treated as clean.
 
-## Supported provider examples
+## Provider metadata
 
-The in-repo provider catalog currently seeds metadata for:
+The in-repo provider catalog intentionally stays small. It currently seeds metadata for:
 
 - `zen.spamhaus.org`
 - `b.barracudacentral.org`
 - `bl.spamcop.net`
 
-The service still accepts other syntactically valid DNSBL provider domains, but only the seeded providers currently have explicit catalog metadata.
+Known providers expose human-facing metadata such as display names, TXT support hints, and reference URLs. Unknown but valid provider domains are still accepted safely with sensible defaults.
 
-## Dry-run vs real run
+## Dry-run, real run, and JSON mode
 
-Dry-run validates configuration, initializes logging, logs the startup summary, and exits without performing DNS or HTTP side effects:
+Dry-run validates configuration, initializes logging, logs the startup summary, and exits without DNS or HTTP side effects:
 
 ```bash
-uv run python -m mail_rbl_monitor --dry-run
+uv run mail-rbl-monitor --dry-run
 ```
 
 Real run performs DNSBL checks and sends notifications only if at least one listing is found:
 
 ```bash
-MAIL_RBL_MONITOR_DRY_RUN=false uv run python -m mail_rbl_monitor
+MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor
 ```
+
+Machine-readable JSON output is available in both modes:
+
+```bash
+uv run mail-rbl-monitor --dry-run --json
+MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor --json
+```
+
+`--json` writes one stable compact JSON document to stdout. Logs still go to stderr. Secrets are never included in the JSON payload.
+
+## Alert context settings
+
+- `MAIL_RBL_MONITOR_HOST_LABEL`: optional operator-facing label such as `mail-01`
+- `MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS`: include the configured host label, or fall back to the system hostname when no label is set
+- `MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS`: include `APP_ENV` in alert text
+- `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS`: include the UTC run timestamp in alert text
+
+These settings affect alert formatting and JSON context only. They do not change DNS or notifier behavior.
 
 ## Notification behavior
 
 - If one or more listings are found, the service formats a single plain-text alert message for the run.
-- The alert is delivered through enabled Telegram and/or Discord adapters.
+- The alert is delivered through enabled Telegram and or Discord adapters.
 - No success notification is sent when everything is clean.
 - Provider errors alone do not trigger notifications in this phase.
+- If a listing is found and notification delivery fails, the run fails loudly instead of pretending success.
 
 ## Exit codes
 
@@ -93,16 +113,28 @@ If a run has both listings and provider errors, the process exits with `20`.
 
 ## Example commands
 
-Dry-run:
+Dry-run human mode:
 
 ```bash
-uv run python -m mail_rbl_monitor --dry-run
+uv run mail-rbl-monitor --dry-run
 ```
 
-Real run with `.env`:
+Real run human mode:
 
 ```bash
-uv run python -m mail_rbl_monitor
+uv run mail-rbl-monitor
+```
+
+Dry-run JSON mode:
+
+```bash
+uv run mail-rbl-monitor --dry-run --json
+```
+
+Real run JSON mode:
+
+```bash
+MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor --json
 ```
 
 Real run with env overrides:
@@ -111,7 +143,7 @@ Real run with env overrides:
 MAIL_RBL_MONITOR_DRY_RUN=false \
 MAIL_RBL_MONITOR_TARGET_IPS=136.243.71.222 \
 MAIL_RBL_MONITOR_DNSBL_PROVIDERS=zen.spamhaus.org,bl.spamcop.net \
-uv run python -m mail_rbl_monitor
+uv run mail-rbl-monitor
 ```
 
 ## Project layout
@@ -119,6 +151,7 @@ uv run python -m mail_rbl_monitor
 ```text
 .
 ├── .cursor/rules/
+├── deploy/systemd/
 ├── docs/
 ├── scripts/
 ├── src/mail_rbl_monitor/
@@ -133,4 +166,4 @@ See [docs/architecture.md](docs/architecture.md), [docs/local-development.md](do
 
 ## Next planned phase
 
-Phase 3 can focus on operational hardening such as controlled retries, richer provider coverage, and optional deduplication only if a concrete requirement justifies it. Persistence, long-running scheduling, and broader monitoring-platform behavior remain intentionally out of scope.
+The next phase can consider narrowly justified improvements such as limited retry policy, more provider metadata, or optional alert deduplication only if concrete operational requirements appear. Persistence, long-running scheduling, and broader monitoring-platform behavior remain intentionally out of scope.

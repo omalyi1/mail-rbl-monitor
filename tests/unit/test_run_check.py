@@ -6,7 +6,12 @@ from mail_rbl_monitor.application.run_check import run_check
 from mail_rbl_monitor.cli import determine_exit_code
 from mail_rbl_monitor.config import Settings
 from mail_rbl_monitor.constants import ExitCode
-from mail_rbl_monitor.domain.enums import AppEnvironment, ListingStatus, NotificationChannel
+from mail_rbl_monitor.domain.enums import (
+    AppEnvironment,
+    ListingStatus,
+    NotificationChannel,
+    ProviderErrorKind,
+)
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 from mail_rbl_monitor.infrastructure.dns.resolver import build_dnsbl_query_name
 
@@ -65,6 +70,7 @@ def _build_provider_result(
     listed_addresses: tuple[str, ...] = (),
     txt_reasons: tuple[str, ...] = (),
     error_message: str | None = None,
+    error_kind: ProviderErrorKind | None = None,
 ) -> ProviderCheckResult:
     target_ip = TargetIP.from_raw("136.243.71.222")
     provider = DnsblProvider.from_raw("zen.spamhaus.org")
@@ -76,6 +82,7 @@ def _build_provider_result(
         listed_addresses=listed_addresses,
         txt_reasons=txt_reasons,
         error_message=error_message,
+        error_kind=error_kind,
         latency_ms=12,
     )
 
@@ -93,6 +100,7 @@ def test_application_clean_run_returns_success_without_notifications() -> None:
     assert summary.has_errors is False
     assert summary.notifications_sent == ()
     assert sender.sent_messages == []
+    assert summary.checked_at_utc.endswith("Z")
     assert determine_exit_code(summary) == ExitCode.SUCCESS
 
 
@@ -122,8 +130,10 @@ def test_application_listed_run_sends_notifications_and_returns_listing_exit_cod
         NotificationChannel.DISCORD,
     )
     assert summary.alert_message is not None
+    assert "Environment: test" in summary.alert_message
+    assert "Checked at (UTC): " in summary.alert_message
     assert "Target IP: 136.243.71.222" in summary.alert_message
-    assert "zen.spamhaus.org" in summary.alert_message
+    assert "Spamhaus ZEN (zen.spamhaus.org)" in summary.alert_message
     assert telegram_sender.sent_messages == [summary.alert_message]
     assert discord_sender.sent_messages == [summary.alert_message]
     assert determine_exit_code(summary) == ExitCode.LISTING_FOUND
@@ -136,6 +146,7 @@ def test_application_provider_error_only_run_returns_degraded_exit_code() -> Non
             ("136.243.71.222", "zen.spamhaus.org"): _build_provider_result(
                 status=ListingStatus.ERROR,
                 error_message="DNS query timed out.",
+                error_kind=ProviderErrorKind.TIMEOUT,
             )
         }
     )
@@ -146,5 +157,6 @@ def test_application_provider_error_only_run_returns_degraded_exit_code() -> Non
     assert summary.has_listings is False
     assert summary.has_errors is True
     assert summary.error_count == 1
+    assert summary.error_results[0].error_kind == ProviderErrorKind.TIMEOUT
     assert sender.sent_messages == []
     assert determine_exit_code(summary) == ExitCode.PROVIDER_ERRORS

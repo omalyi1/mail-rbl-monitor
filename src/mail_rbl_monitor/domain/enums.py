@@ -13,6 +13,14 @@ class ListingStatus(StrEnum):
     ERROR = "error"
 
 
+class ProviderErrorKind(StrEnum):
+    TIMEOUT = "timeout"
+    NO_ANSWER = "no_answer"
+    NO_NAMESERVERS = "no_nameservers"
+    DNS_EXCEPTION = "dns_exception"
+    UNEXPECTED = "unexpected"
+
+
 class NotificationChannel(StrEnum):
     TELEGRAM = "telegram"
     DISCORD = "discord"

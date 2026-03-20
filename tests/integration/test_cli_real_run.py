@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 import pytest
@@ -20,6 +21,10 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD",
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
+    "MAIL_RBL_MONITOR_HOST_LABEL",
+    "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
+    "MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS",
+    "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
     "MAIL_RBL_MONITOR_TIMEOUT_SECONDS",
     "MAIL_RBL_MONITOR_DRY_RUN",
 )
@@ -97,4 +102,45 @@ def test_cli_real_run_returns_listing_exit_code_with_mocked_dependencies(
 
     assert exit_code == ExitCode.LISTING_FOUND
     assert len(fake_sender.sent_messages) == 1
-    assert "zen.spamhaus.org" in fake_sender.sent_messages[0]
+    assert "Spamhaus ZEN (zen.spamhaus.org)" in fake_sender.sent_messages[0]
+
+
+def test_cli_json_real_run_returns_valid_json_and_hides_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _set_real_run_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_HOST_LABEL", "mail-01")
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    result = ProviderCheckResult(
+        target_ip=target_ip,
+        provider=provider,
+        query_name=build_dnsbl_query_name(target_ip.value, provider.name),
+        status=ListingStatus.LISTED,
+        listed_addresses=("127.0.0.2",),
+        txt_reasons=("Spamhaus listed",),
+        latency_ms=10,
+    )
+    fake_resolver = FakeDnsResolver(result)
+    fake_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+
+    monkeypatch.setattr(
+        "mail_rbl_monitor.application.run_check.DnsblResolver", lambda: fake_resolver
+    )
+    monkeypatch.setattr(
+        "mail_rbl_monitor.application.run_check._build_notification_senders",
+        lambda settings: (fake_sender,),
+    )
+
+    exit_code = main(["--json"])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == ExitCode.LISTING_FOUND
+    assert payload["exit_code"] == 20
+    assert payload["host_label"] == "mail-01"
+    assert payload["summary"]["listed_count"] == 1
+    assert payload["summary"]["notifications_sent"] == ["telegram"]
+    assert payload["results"][0]["provider_results"][0]["provider_display_name"] == "Spamhaus ZEN"
+    assert "telegram-token" not in captured.out

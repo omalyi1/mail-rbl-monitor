@@ -9,7 +9,7 @@ from typing import Protocol
 import dns.exception
 import dns.resolver
 
-from mail_rbl_monitor.domain.enums import ListingStatus
+from mail_rbl_monitor.domain.enums import ListingStatus, ProviderErrorKind
 from mail_rbl_monitor.domain.exceptions import ProviderResolutionError
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 from mail_rbl_monitor.domain.ports import DnsResolverPort
@@ -80,6 +80,7 @@ class DnsblResolver(DnsResolverPort):
                 query_name=query_name,
                 status=ListingStatus.ERROR,
                 error_message=str(exc),
+                error_kind=exc.error_kind,
                 latency_ms=self._calculate_latency_ms(started_at),
             )
 
@@ -113,15 +114,28 @@ class DnsblResolver(DnsResolverPort):
             raise
         except dns.resolver.NoAnswer as exc:
             raise ProviderResolutionError(
-                "Provider returned no A answer; clean results must return NXDOMAIN."
+                "Provider returned no A answer; clean results must return NXDOMAIN.",
+                error_kind=ProviderErrorKind.NO_ANSWER,
             ) from exc
         except dns.exception.Timeout as exc:
-            raise ProviderResolutionError("DNS query timed out.") from exc
+            raise ProviderResolutionError(
+                "DNS query timed out.",
+                error_kind=ProviderErrorKind.TIMEOUT,
+            ) from exc
         except dns.resolver.NoNameservers as exc:
-            raise ProviderResolutionError("No nameserver could answer the DNS query.") from exc
+            raise ProviderResolutionError(
+                "No nameserver could answer the DNS query.",
+                error_kind=ProviderErrorKind.NO_NAMESERVERS,
+            ) from exc
         except dns.exception.DNSException as exc:
             raise ProviderResolutionError(
-                f"DNS query failed with {exc.__class__.__name__}."
+                f"DNS query failed with {exc.__class__.__name__}.",
+                error_kind=ProviderErrorKind.DNS_EXCEPTION,
+            ) from exc
+        except Exception as exc:
+            raise ProviderResolutionError(
+                "Unexpected DNS resolution failure.",
+                error_kind=ProviderErrorKind.UNEXPECTED,
             ) from exc
 
         return _deduplicate_preserving_order(

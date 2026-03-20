@@ -13,16 +13,21 @@ Typical execution models:
 Example future invocation:
 
 ```bash
-uv run python -m mail_rbl_monitor
+uv run mail-rbl-monitor
 ```
 
 Example cron entry:
 
 ```cron
-0 9 * * * cd /opt/mail-rbl-monitor && /usr/bin/env uv run python -m mail_rbl_monitor
+0 9 * * * cd /opt/mail-rbl-monitor && /usr/bin/env uv run mail-rbl-monitor
 ```
 
-For `systemd`, keep the service one-shot and let a timer trigger it on the desired schedule. The `ExecStart` command should call the same `uv run python -m mail_rbl_monitor` entrypoint used locally.
+For `systemd`, keep the service one-shot and let a timer trigger it on the desired schedule. This repository includes example templates in `deploy/systemd/`:
+
+- `deploy/systemd/mail-rbl-monitor.service`
+- `deploy/systemd/mail-rbl-monitor.timer`
+
+The service template is `Type=oneshot` and uses placeholders for the runtime user, group, working directory, and environment file. Keep the `ExecStart` command aligned with the same `uv run mail-rbl-monitor` entrypoint used locally.
 
 ## Secret handling
 
@@ -38,8 +43,26 @@ The application emits concise structured logs through the standard library loggi
 Operational expectations:
 
 - startup logs should confirm the configured targets, providers, enabled channels, and dry-run state
+- when `--json` is used, stdout should contain one stable JSON document for the run
 - secrets must never appear in logs
 - non-zero exits should be interpreted according to the exit code contract below
+
+## JSON output
+
+`--json` is intended for schedulers, wrappers, and operators who want machine-readable output without parsing logs.
+
+The JSON payload includes:
+
+- application name and version
+- environment, dry-run state, host label, and UTC timestamp
+- configured targets and providers
+- summary counters
+- per-target and per-provider results
+- notification channels actually sent
+- exit code
+- error information for configuration or unrecoverable application failures
+
+JSON output does not include secrets, raw notifier credentials, or transport internals.
 
 ## Exit codes
 
@@ -56,6 +79,19 @@ If the run contains both real listings and provider errors, the process exits wi
 - the service sends a single plain-text alert message per run
 - Telegram and Discord remain thin transport adapters; message formatting lives in the application layer
 - provider errors alone do not trigger notifications in this phase
+- if a listing is detected and notification delivery fails, the run exits with `1`
+
+## Provider error kinds
+
+Provider failures are classified explicitly so degraded runs are easier to interpret:
+
+- `timeout`: the provider did not answer before the configured timeout
+- `no_answer`: the provider returned no usable answer for the query
+- `no_nameservers`: resolver nameservers could not answer usefully
+- `dns_exception`: another `dnspython` resolver failure occurred
+- `unexpected`: a non-DNS unexpected exception occurred in the resolver path
+
+`NXDOMAIN` is not an error. It is treated as a clean result for that provider.
 
 ## High-level failure modes
 

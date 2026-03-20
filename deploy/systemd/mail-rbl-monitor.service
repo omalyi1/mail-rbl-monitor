@@ -1,0 +1,22 @@
+[Unit]
+Description=mail-rbl-monitor one-shot DNSBL reputation check
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Replace with the service account that should run the check.
+User=<MAIL_RBL_MONITOR_USER>
+Group=<MAIL_RBL_MONITOR_GROUP>
+# Replace with the checked-out repository path.
+WorkingDirectory=<MAIL_RBL_MONITOR_WORKDIR>
+# Replace with the deployed environment file path.
+EnvironmentFile=<MAIL_RBL_MONITOR_ENV_FILE>
+# Append --json if your scheduler or wrapper expects machine-readable stdout.
+ExecStart=/usr/bin/env uv run mail-rbl-monitor
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

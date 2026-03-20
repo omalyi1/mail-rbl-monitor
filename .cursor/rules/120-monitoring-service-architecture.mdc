@@ -21,13 +21,18 @@ This repository is a focused mail reputation monitoring service, not a generic m
 - Use DNSBL DNS queries, not website scraping, browser automation, or HTML parsing.
 - Keep DNSBL checks provider-driven and testable.
 - Treat provider failures explicitly; do not silently downgrade DNS failures to clean results.
+- Keep provider failure classification small, explicit, and operationally useful.
 - Keep notification channels behind adapters and ports.
 - Keep notification adapters thin and transport-focused; message formatting belongs outside the adapters.
 - Preserve a clean separation between configuration, domain logic, application orchestration, and infrastructure code.
 - Favor small, explicit models over generic dictionaries and catch-all utility modules.
+- Keep JSON serialization at the CLI or presentation boundary rather than inside infrastructure adapters.
 
 ## Operational simplicity
 - Preserve deterministic execution and clear exit behavior.
+- Preserve `cron` and `systemd` friendliness by keeping execution one-shot.
+- Keep alert context concise, operator-focused, and configurable.
 - Do not add a database, state store, or alert deduplication unless explicitly required.
 - Keep logs structured and operationally useful.
 - Never log secrets, tokens, or webhook URLs.
+- Do not introduce long-running service behavior without an explicit user request.

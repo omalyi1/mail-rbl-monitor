@@ -1,9 +1,11 @@
+import json
+
 import pytest
 
 from mail_rbl_monitor.cli import determine_exit_code, main
 from mail_rbl_monitor.constants import ExitCode
 from mail_rbl_monitor.domain.enums import AppEnvironment
-from mail_rbl_monitor.domain.models import AppRuntimeConfigSummary, RunSummary
+from mail_rbl_monitor.domain.models import AppRuntimeConfigSummary, OperatorAlertContext, RunSummary
 
 _ENV_KEYS = (
     "APP_ENV",
@@ -15,6 +17,10 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD",
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
+    "MAIL_RBL_MONITOR_HOST_LABEL",
+    "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
+    "MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS",
+    "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
     "MAIL_RBL_MONITOR_TIMEOUT_SECONDS",
     "MAIL_RBL_MONITOR_DRY_RUN",
 )
@@ -51,7 +57,28 @@ def test_cli_dry_run_success(
     assert "Dry run complete" in captured.err
 
 
-def test_determine_exit_code_prefers_listings_over_errors() -> None:
+def test_cli_dry_run_json_emits_valid_payload(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_HOST_LABEL", "mail-01")
+
+    exit_code = main(["--dry-run", "--json"])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == ExitCode.SUCCESS
+    assert payload["app"] == "mail-rbl-monitor"
+    assert payload["dry_run"] is True
+    assert payload["environment"] == "dev"
+    assert payload["host_label"] == "mail-01"
+    assert payload["summary"]["total_provider_checks"] == 0
+    assert payload["results"] == []
+    assert payload["exit_code"] == 0
+    assert payload["error"] is None
+
+
+def test_determine_exit_code_returns_success_for_clean_summary() -> None:
     run_summary = RunSummary(
         runtime_config=AppRuntimeConfigSummary(
             environment=AppEnvironment.TEST,
@@ -63,7 +90,14 @@ def test_determine_exit_code_prefers_listings_over_errors() -> None:
             telegram_enabled=False,
             discord_enabled=False,
             enabled_channels=(),
+            alert_context=OperatorAlertContext(
+                host_label=None,
+                include_hostname_in_alerts=True,
+                include_environment_in_alerts=True,
+                include_utc_timestamp_in_alerts=True,
+            ),
         ),
+        checked_at_utc="2026-03-20T09:00:00Z",
     )
 
     assert determine_exit_code(run_summary) == ExitCode.SUCCESS

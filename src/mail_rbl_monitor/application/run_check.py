@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 from collections.abc import Sequence
 
 from mail_rbl_monitor.application.formatters import format_listing_alert
@@ -14,7 +15,7 @@ from mail_rbl_monitor.domain.models import (
     TargetIP,
 )
 from mail_rbl_monitor.domain.ports import DnsResolverPort, NotificationSenderPort
-from mail_rbl_monitor.domain.services import build_run_summary
+from mail_rbl_monitor.domain.services import build_run_summary, current_utc_timestamp
 from mail_rbl_monitor.infrastructure.dns.resolver import DnsblResolver
 from mail_rbl_monitor.infrastructure.notifications.discord import DiscordNotificationSender
 from mail_rbl_monitor.infrastructure.notifications.telegram import TelegramNotificationSender
@@ -27,23 +28,37 @@ def run_check(
     notification_senders: Sequence[NotificationSenderPort] | None = None,
 ) -> RunSummary:
     summary = settings.to_runtime_summary()
+    checked_at_utc = current_utc_timestamp()
+    host_label = _resolve_host_label(summary)
     logger = logging.getLogger("mail_rbl_monitor.run_check")
 
-    _log_startup(summary=summary, logger=logger)
+    _log_startup(
+        summary=summary, checked_at_utc=checked_at_utc, host_label=host_label, logger=logger
+    )
 
     if summary.dry_run:
         logger.info(
             "Dry run complete",
-            extra={"event": "run.complete", "dry_run": True},
+            extra={"event": "run.complete", "checked_at_utc": checked_at_utc, "dry_run": True},
         )
-        return build_run_summary(runtime_config=summary, target_results=())
+        return build_run_summary(
+            runtime_config=summary,
+            checked_at_utc=checked_at_utc,
+            target_results=(),
+            host_label=host_label,
+        )
 
     resolver = dns_resolver or DnsblResolver()
     target_results = tuple(
         _check_target(target_ip=target_ip, summary=summary, resolver=resolver, logger=logger)
         for target_ip in summary.target_ips
     )
-    run_summary = build_run_summary(runtime_config=summary, target_results=target_results)
+    run_summary = build_run_summary(
+        runtime_config=summary,
+        checked_at_utc=checked_at_utc,
+        target_results=target_results,
+        host_label=host_label,
+    )
 
     if run_summary.has_listings:
         alert_message = format_listing_alert(run_summary)
@@ -59,7 +74,9 @@ def run_check(
         )
         run_summary = build_run_summary(
             runtime_config=summary,
+            checked_at_utc=checked_at_utc,
             target_results=target_results,
+            host_label=host_label,
             notifications_sent=notifications_sent,
             alert_message=alert_message,
         )
@@ -82,19 +99,29 @@ def run_check(
             "listed_count": run_summary.listed_count,
             "notifications_sent": [channel.value for channel in run_summary.notifications_sent],
             "provider_checks": run_summary.total_provider_checks,
+            "checked_at_utc": checked_at_utc,
+            "host_label": host_label,
         },
     )
 
     return run_summary
 
 
-def _log_startup(*, summary: AppRuntimeConfigSummary, logger: logging.Logger) -> None:
+def _log_startup(
+    *,
+    summary: AppRuntimeConfigSummary,
+    checked_at_utc: str,
+    host_label: str | None,
+    logger: logging.Logger,
+) -> None:
     logger.info(
         "Loaded configuration successfully",
         extra={
             "event": "config.loaded",
             "app_env": summary.environment.value,
+            "checked_at_utc": checked_at_utc,
             "dry_run": summary.dry_run,
+            "host_label": host_label,
             "timeout_seconds": summary.timeout_seconds,
         },
     )
@@ -169,6 +196,9 @@ def _log_provider_result(*, provider_result: ProviderCheckResult, logger: loggin
             "DNSBL provider check failed",
             extra={
                 **log_extra,
+                "error_kind": provider_result.error_kind.value
+                if provider_result.error_kind is not None
+                else None,
                 "error": provider_result.error_message,
             },
         )
@@ -230,3 +260,12 @@ def _send_notifications(
         )
 
     return tuple(notifications_sent)
+
+
+def _resolve_host_label(summary: AppRuntimeConfigSummary) -> str | None:
+    if summary.alert_context.host_label is not None:
+        return summary.alert_context.host_label
+    if summary.alert_context.include_hostname_in_alerts:
+        hostname = socket.gethostname().strip()
+        return hostname or None
+    return None

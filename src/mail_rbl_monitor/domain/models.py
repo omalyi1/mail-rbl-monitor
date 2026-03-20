@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from ipaddress import AddressValueError, IPv4Address
 from typing import Self
 
-from mail_rbl_monitor.domain.enums import AppEnvironment, ListingStatus, NotificationChannel
+from mail_rbl_monitor.domain.enums import (
+    AppEnvironment,
+    ListingStatus,
+    NotificationChannel,
+    ProviderErrorKind,
+)
 from mail_rbl_monitor.domain.exceptions import ConfigurationError
 
 _PROVIDER_NAME_PATTERN = re.compile(
@@ -57,6 +62,7 @@ class ProviderCheckResult:
     listed_addresses: tuple[str, ...] = ()
     txt_reasons: tuple[str, ...] = ()
     error_message: str | None = None
+    error_kind: ProviderErrorKind | None = None
     latency_ms: int | None = None
 
     @property
@@ -95,6 +101,14 @@ class TargetCheckResult:
 
 
 @dataclass(frozen=True, slots=True)
+class OperatorAlertContext:
+    host_label: str | None
+    include_hostname_in_alerts: bool
+    include_environment_in_alerts: bool
+    include_utc_timestamp_in_alerts: bool
+
+
+@dataclass(frozen=True, slots=True)
 class AppRuntimeConfigSummary:
     environment: AppEnvironment
     log_level: str
@@ -105,6 +119,7 @@ class AppRuntimeConfigSummary:
     telegram_enabled: bool
     discord_enabled: bool
     enabled_channels: tuple[NotificationChannel, ...]
+    alert_context: OperatorAlertContext
 
     @property
     def target_count(self) -> int:
@@ -118,7 +133,9 @@ class AppRuntimeConfigSummary:
 @dataclass(frozen=True, slots=True)
 class RunSummary:
     runtime_config: AppRuntimeConfigSummary
+    checked_at_utc: str
     target_results: tuple[TargetCheckResult, ...] = ()
+    host_label: str | None = None
     notifications_sent: tuple[NotificationChannel, ...] = ()
     alert_message: str | None = None
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run mail-rbl-monitor on a daily schedule
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=mail-rbl-monitor.service
+
+[Install]
+WantedBy=timers.target
