@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Annotated, Self
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -10,6 +10,7 @@ from pydantic import (
     Field,
     SecretStr,
     ValidationError,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -23,7 +24,12 @@ from mail_rbl_monitor.constants import (
 )
 from mail_rbl_monitor.domain.enums import AppEnvironment
 from mail_rbl_monitor.domain.exceptions import ConfigurationError
-from mail_rbl_monitor.domain.models import DnsblProvider, OperatorAlertContext, TargetIP
+from mail_rbl_monitor.domain.models import (
+    DnsblProvider,
+    OperatorAlertContext,
+    TargetHost,
+    TargetIP,
+)
 from mail_rbl_monitor.domain.services import build_runtime_summary
 
 _ALLOWED_LOG_LEVELS = frozenset({"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"})
@@ -47,6 +53,71 @@ def _blank_to_none(value: object) -> object:
     return value
 
 
+def _parse_target_hosts_mapping(value: object) -> dict[IPv4Address, str]:
+    target_hosts: dict[IPv4Address, str] = {}
+
+    if value is None:
+        return target_hosts
+
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return target_hosts
+
+        for raw_entry in raw.split(","):
+            entry = raw_entry.strip()
+            if not entry:
+                continue
+            if "=" not in entry:
+                raise ValueError(
+                    "Each MAIL_RBL_MONITOR_TARGET_HOSTS entry must use ip=hostname format."
+                )
+
+            raw_ip, raw_host = entry.split("=", 1)
+            _add_target_host_mapping_entry(
+                target_hosts=target_hosts,
+                raw_ip=raw_ip,
+                raw_host=raw_host,
+            )
+        return target_hosts
+
+    if isinstance(value, Mapping):
+        for raw_ip, raw_host in value.items():
+            _add_target_host_mapping_entry(
+                target_hosts=target_hosts,
+                raw_ip=str(raw_ip),
+                raw_host=str(raw_host),
+            )
+        return target_hosts
+
+    raise TypeError("MAIL_RBL_MONITOR_TARGET_HOSTS must be a string or mapping-compatible value.")
+
+
+def _add_target_host_mapping_entry(
+    *,
+    target_hosts: dict[IPv4Address, str],
+    raw_ip: str,
+    raw_host: str,
+) -> None:
+    ip_text = raw_ip.strip()
+    host_text = raw_host.strip()
+
+    if not ip_text:
+        raise ValueError("MAIL_RBL_MONITOR_TARGET_HOSTS entries must include an IPv4 key.")
+    if not host_text:
+        raise ValueError("Target host mapping hostname must not be empty.")
+
+    try:
+        target_ip = IPv4Address(ip_text)
+    except ValueError as exc:
+        raise ValueError(f"Invalid IPv4 address in target host mapping: {ip_text}") from exc
+
+    if target_ip in target_hosts:
+        raise ValueError(f"Duplicate target host mapping for IP: {target_ip}")
+
+    target_hosts[target_ip] = host_text
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=DEFAULT_ENV_FILE,
@@ -63,6 +134,7 @@ class Settings(BaseSettings):
     )
     app_log_level: str = Field(default="INFO", validation_alias=AliasChoices("APP_LOG_LEVEL"))
     target_ips: Annotated[tuple[IPv4Address, ...], NoDecode] = Field(default_factory=tuple)
+    target_hosts: Annotated[dict[IPv4Address, str], NoDecode] = Field(default_factory=dict)
     dnsbl_providers: Annotated[tuple[str, ...], NoDecode] = Field(default_factory=tuple)
     enable_telegram: bool = False
     telegram_bot_token: SecretStr | None = None
@@ -120,6 +192,11 @@ class Settings(BaseSettings):
     def parse_target_ips(cls, value: object) -> list[str]:
         return _split_csv(value)
 
+    @field_validator("target_hosts", mode="before")
+    @classmethod
+    def parse_target_hosts(cls, value: object) -> dict[IPv4Address, str]:
+        return _parse_target_hosts_mapping(value)
+
     @field_validator("target_ips")
     @classmethod
     def validate_target_ips(cls, value: tuple[IPv4Address, ...]) -> tuple[IPv4Address, ...]:
@@ -134,6 +211,24 @@ class Settings(BaseSettings):
             raise ValueError("Target IPv4 addresses must be unique.")
 
         return normalized
+
+    @field_validator("target_hosts")
+    @classmethod
+    def validate_target_hosts(
+        cls,
+        value: dict[IPv4Address, str],
+        info: ValidationInfo,
+    ) -> dict[IPv4Address, str]:
+        configured_target_ips = set(info.data.get("target_ips", ()))
+        unknown_host_ips = sorted(
+            str(target_ip) for target_ip in value if target_ip not in configured_target_ips
+        )
+        if unknown_host_ips:
+            raise ValueError(
+                "Host mappings contain IPs not present in MAIL_RBL_MONITOR_TARGET_IPS: "
+                + ", ".join(unknown_host_ips)
+            )
+        return value
 
     @field_validator("dnsbl_providers", mode="before")
     @classmethod
@@ -220,6 +315,10 @@ class Settings(BaseSettings):
                 include_hostname_in_alerts=self.include_hostname_in_alerts,
                 include_checked_at_in_alerts=self.include_checked_at_in_alerts,
                 alert_timezone=self.alert_timezone,
+                target_hosts=tuple(
+                    TargetHost(target_ip=TargetIP.from_raw(target_ip), hostname=hostname)
+                    for target_ip, hostname in self.target_hosts.items()
+                ),
             ),
         )
 

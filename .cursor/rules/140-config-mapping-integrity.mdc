@@ -1,0 +1,19 @@
+---
+description: Preserve explicit, lossless parsing for structured env mappings such as target IP to host metadata.
+globs:
+  - "src/mail_rbl_monitor/config.py"
+  - "src/mail_rbl_monitor/domain/models.py"
+  - "tests/unit/test_config.py"
+  - "tests/unit/test_formatters.py"
+alwaysApply: false
+---
+
+# Config Mapping Integrity
+
+- Keep structured env parsing explicit and strongly typed.
+- Do not parse `ip=hostname` mappings with generic CSV helpers unless correctness is proven.
+- Split list items by comma first, then split each item by `=` with `maxsplit=1`.
+- Validate all keys and values.
+- Do not silently drop malformed, duplicate, or unknown mapping entries.
+- Preserve backward-compatible config behavior unless explicitly asked to change it.
+- Keep formatter logic presentation-only, not config-parsing-aware.

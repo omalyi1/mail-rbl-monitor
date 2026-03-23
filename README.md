@@ -75,6 +75,7 @@ Core settings:
 - `APP_ENV`
 - `APP_LOG_LEVEL`
 - `MAIL_RBL_MONITOR_TARGET_IPS`
+- `MAIL_RBL_MONITOR_TARGET_HOSTS`
 - `MAIL_RBL_MONITOR_DNSBL_PROVIDERS`
 - `MAIL_RBL_MONITOR_TIMEOUT_SECONDS`
 - `MAIL_RBL_MONITOR_DRY_RUN`
@@ -94,6 +95,17 @@ Alert context settings:
 - `MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS`
 - `MAIL_RBL_MONITOR_ALERT_TIMEZONE`
 
+`MAIL_RBL_MONITOR_TARGET_HOSTS` is optional per-target metadata used for alert
+formatting. The parser expects a comma-separated `ip=hostname` mapping, for example:
+
+```text
+MAIL_RBL_MONITOR_TARGET_HOSTS=111.222.33.44=mail.server.com,111.222.34.45=mail.server2.com
+```
+
+Per-target `Host:` lines in alert text come from `MAIL_RBL_MONITOR_TARGET_HOSTS`.
+`MAIL_RBL_MONITOR_HOST_LABEL` remains available as general operator context for other
+outputs.
+
 `MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS` is the canonical public setting.
 The older `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS` name is still accepted as
 a backward-compatible alias and is documented as deprecated.
@@ -106,12 +118,18 @@ handled automatically.
 
 ```text
 [mail-rbl-monitor] LISTING DETECTED
-Host: mail-01
+
 Checked at (Europe/Kyiv): 2026-03-23 12:12:02
 
-Target IP: 136.243.71.222
+Target IP: 111.222.33.44
+Host: mail.server.com
 Listed in:
 - Spamhaus ZEN (zen.spamhaus.org) (A: 127.0.0.2; TXT: Spamhaus listed)
+
+Target IP: 111.222.34.45
+Host: mail.server2.com
+Listed in:
+- Spamhaus ZEN (zen.spamhaus.org) (A: 127.0.0.3)
 ```
 
 ## Dry-run, real-run, and JSON mode

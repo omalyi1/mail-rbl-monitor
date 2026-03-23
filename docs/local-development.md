@@ -21,6 +21,9 @@ cp .env.example .env
 Edit `.env` with the target IPv4 addresses and provider domains you want to monitor.
 Keep `MAIL_RBL_MONITOR_DRY_RUN=true` while validating configuration locally.
 
+If you want per-target hostnames in alert text, set `MAIL_RBL_MONITOR_TARGET_HOSTS`
+with `ip=hostname` pairs.
+
 For production-oriented examples, start from [`.env.prod.example`](../.env.prod.example).
 
 ## Validation workflow
@@ -62,10 +65,13 @@ uv run mail-rbl-monitor
 
 ## Alert presentation settings
 
+- `MAIL_RBL_MONITOR_TARGET_HOSTS`
 - `MAIL_RBL_MONITOR_HOST_LABEL`
 - `MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS`
 - `MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS`
 - `MAIL_RBL_MONITOR_ALERT_TIMEZONE`
+
+`MAIL_RBL_MONITOR_TARGET_HOSTS` controls per-target `Host:` lines in alert text.
 
 `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS` is still accepted as a deprecated
 compatibility alias for the checked-at setting.

@@ -101,15 +101,28 @@ class TargetCheckResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TargetHost:
+    target_ip: TargetIP
+    hostname: str
+
+
+@dataclass(frozen=True, slots=True)
 class OperatorAlertContext:
     host_label: str | None
     include_hostname_in_alerts: bool
     include_checked_at_in_alerts: bool
     alert_timezone: str
+    target_hosts: tuple[TargetHost, ...] = ()
 
     @property
     def include_utc_timestamp_in_alerts(self) -> bool:
         return self.include_checked_at_in_alerts
+
+    def host_for(self, target_ip: TargetIP) -> str | None:
+        for target_host in self.target_hosts:
+            if target_host.target_ip == target_ip:
+                return target_host.hostname
+        return None
 
 
 @dataclass(frozen=True, slots=True)

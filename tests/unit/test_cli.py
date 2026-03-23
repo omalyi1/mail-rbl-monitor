@@ -11,6 +11,7 @@ _ENV_KEYS = (
     "APP_ENV",
     "APP_LOG_LEVEL",
     "MAIL_RBL_MONITOR_TARGET_IPS",
+    "MAIL_RBL_MONITOR_TARGET_HOSTS",
     "MAIL_RBL_MONITOR_DNSBL_PROVIDERS",
     "MAIL_RBL_MONITOR_ENABLE_TELEGRAM",
     "MAIL_RBL_MONITOR_TELEGRAM_BOT_TOKEN",
@@ -34,6 +35,7 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("APP_LOG_LEVEL", "INFO")
     monkeypatch.setenv("MAIL_RBL_MONITOR_TARGET_IPS", "136.243.71.222")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_TARGET_HOSTS", "")
     monkeypatch.setenv(
         "MAIL_RBL_MONITOR_DNSBL_PROVIDERS",
         "zen.spamhaus.org,b.barracudacentral.org,bl.spamcop.net",

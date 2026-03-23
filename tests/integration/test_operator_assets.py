@@ -20,6 +20,7 @@ def test_env_prod_example_exists_and_matches_current_settings_surface() -> None:
         "MAIL_RBL_MONITOR_DRY_RUN",
         "MAIL_RBL_MONITOR_TIMEOUT_SECONDS",
         "MAIL_RBL_MONITOR_TARGET_IPS",
+        "MAIL_RBL_MONITOR_TARGET_HOSTS",
         "MAIL_RBL_MONITOR_DNSBL_PROVIDERS",
         "MAIL_RBL_MONITOR_ENABLE_TELEGRAM",
         "MAIL_RBL_MONITOR_TELEGRAM_BOT_TOKEN",

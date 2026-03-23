@@ -15,31 +15,40 @@ def format_listing_alert(run_summary: RunSummary) -> str:
     lines = [f"[{APP_NAME}] LISTING DETECTED"]
     context = run_summary.runtime_config.alert_context
 
-    if context.include_hostname_in_alerts and run_summary.host_label is not None:
-        lines.append(f"Host: {run_summary.host_label}")
     if context.include_checked_at_in_alerts:
-        lines.append(
-            _format_checked_at_line(
-                checked_at_utc=run_summary.checked_at_utc,
-                timezone_name=context.alert_timezone,
-            )
+        lines.extend(
+            [
+                "",
+                _format_checked_at_line(
+                    checked_at_utc=run_summary.checked_at_utc,
+                    timezone_name=context.alert_timezone,
+                ),
+                "",
+            ]
         )
-
-    if len(lines) > 1:
+    else:
         lines.append("")
+
+    first_target_block = True
 
     for target_result in run_summary.target_results:
         if not target_result.has_listings:
             continue
 
-        lines.extend(
-            [
-                "",
-                f"Target IP: {target_result.target_ip}",
-                "Listed in:",
-            ]
-        )
+        if not first_target_block:
+            lines.append("")
+
+        lines.append(f"Target IP: {target_result.target_ip}")
+
+        if context.include_hostname_in_alerts:
+            target_host = context.host_for(target_result.target_ip)
+            if target_host is not None:
+                lines.append(f"Host: {target_host}")
+
+        lines.append("Listed in:")
         lines.extend(_format_provider_result(result) for result in target_result.listed_results)
+
+        first_target_block = False
 
     return "\n".join(lines)
 

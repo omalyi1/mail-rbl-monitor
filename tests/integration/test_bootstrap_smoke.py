@@ -9,6 +9,7 @@ _BASE_ENV = {
     "APP_ENV": "test",
     "APP_LOG_LEVEL": "INFO",
     "MAIL_RBL_MONITOR_TARGET_IPS": "136.243.71.222",
+    "MAIL_RBL_MONITOR_TARGET_HOSTS": "",
     "MAIL_RBL_MONITOR_DNSBL_PROVIDERS": "zen.spamhaus.org,b.barracudacentral.org,bl.spamcop.net",
     "MAIL_RBL_MONITOR_ENABLE_TELEGRAM": "false",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD": "false",
