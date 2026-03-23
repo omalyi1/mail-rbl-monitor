@@ -19,4 +19,4 @@ ruff_tests.log
 build/
 dist/
 *.egg-info/
-.pyc
+*.pyc

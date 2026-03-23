@@ -1,0 +1,59 @@
+---
+description: Public repository hygiene and open-source release-readiness rules for mail-rbl-monitor.
+globs:
+  - "README.md"
+  - "pyproject.toml"
+  - ".github/**/*"
+  - "docs/**/*.md"
+  - ".env.example"
+  - ".env.prod.example"
+  - ".cursor/rules/*.mdc"
+  - "tests/**/*.py"
+alwaysApply: false
+---
+
+# Public Release Hygiene
+
+## Public-facing truthfulness
+- Keep the README public-facing, concise, and truthful.
+- Do not mention features, CI workflows, deployment assets, or docs that do not actually exist.
+- Prefer product-oriented README structure over internal project-history structure.
+- Avoid release-phase framing in top-level public documentation unless it is brief and clearly secondary.
+
+## Links and paths
+- Use relative repository links in markdown.
+- Never commit absolute local filesystem links such as `/home/...`.
+- Internal documentation links must remain valid for a public GitHub repository viewer.
+
+## Community health files
+- Preserve and update public repository files such as `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`.
+- Keep community files aligned with real repo behavior and contribution expectations.
+- Keep issue templates and PR templates short, useful, and aligned with the repository's actual workflow.
+
+## Public metadata
+- Keep `pyproject.toml` metadata coherent for public use:
+  - license
+  - license-files
+  - keywords
+  - classifiers
+  - project.urls
+- Do not invent misleading metadata.
+
+## Public configuration stability
+- Preserve backward compatibility for public env variables when reasonably possible.
+- If a public env name becomes misleading, add a new canonical key and keep the old key as a compatibility alias with documentation.
+- Keep `.env.example` and `.env.prod.example` aligned with actual settings.
+
+## Repository cleanliness
+- Do not commit `__pycache__`, `.pyc`, or other local junk artifacts.
+- Keep `.gitignore` aligned with Python project hygiene.
+
+## CI and collaboration
+- Keep CI minimal, deterministic, and truthful.
+- Keep issue templates and PR templates focused and useful.
+- Do not add platform/process overhead beyond what this repository needs.
+
+## Scope discipline
+- Public-release cleanup is not a reason to redesign runtime architecture.
+- Do not add FastAPI, databases, async workers, metrics stacks, web UIs, or platform features unless explicitly requested.
+- Preserve the one-shot CLI design and small-service philosophy.

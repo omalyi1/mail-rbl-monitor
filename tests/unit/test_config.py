@@ -17,6 +17,7 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
     "MAIL_RBL_MONITOR_HOST_LABEL",
     "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
+    "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
     "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
     "MAIL_RBL_MONITOR_ALERT_TIMEZONE",
     "MAIL_RBL_MONITOR_TIMEOUT_SECONDS",
@@ -41,6 +42,8 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_DISCORD", "false")
     monkeypatch.setenv("MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_HOST_LABEL", "")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "true")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_ALERT_TIMEZONE", "Etc/UTC")
     monkeypatch.setenv("MAIL_RBL_MONITOR_TIMEOUT_SECONDS", "5")
     monkeypatch.setenv("MAIL_RBL_MONITOR_DRY_RUN", "true")
 
@@ -60,7 +63,7 @@ def test_settings_parses_single_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.dry_run is True
     assert settings.host_label is None
     assert settings.include_hostname_in_alerts is True
-    assert settings.include_utc_timestamp_in_alerts is True
+    assert settings.include_checked_at_in_alerts is True
     assert settings.alert_timezone == "Etc/UTC"
 
 
@@ -71,6 +74,41 @@ def test_settings_accepts_valid_alert_timezone(monkeypatch: pytest.MonkeyPatch) 
     settings = load_settings()
 
     assert settings.alert_timezone == "Europe/Kyiv"
+
+
+def test_settings_accepts_new_canonical_checked_at_env_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "false")
+
+    settings = load_settings()
+
+    assert settings.include_checked_at_in_alerts is False
+
+
+def test_settings_accepts_deprecated_checked_at_env_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.delenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", raising=False)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS", "false")
+
+    settings = load_settings()
+
+    assert settings.include_checked_at_in_alerts is False
+
+
+def test_settings_prefers_canonical_checked_at_env_key_when_both_are_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "false")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS", "true")
+
+    settings = load_settings()
+
+    assert settings.include_checked_at_in_alerts is False
 
 
 def test_settings_rejects_invalid_ipv4(monkeypatch: pytest.MonkeyPatch) -> None:

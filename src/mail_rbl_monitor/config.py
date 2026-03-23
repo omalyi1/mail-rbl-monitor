@@ -71,10 +71,20 @@ class Settings(BaseSettings):
     discord_webhook_url: SecretStr | None = None
     host_label: str | None = None
     include_hostname_in_alerts: bool = True
-    include_utc_timestamp_in_alerts: bool = True
+    include_checked_at_in_alerts: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
+            "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
+        ),
+    )
     alert_timezone: str = "Etc/UTC"
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     dry_run: bool = True
+
+    @property
+    def include_utc_timestamp_in_alerts(self) -> bool:
+        return self.include_checked_at_in_alerts
 
     @field_validator("app_env", mode="before")
     @classmethod
@@ -208,7 +218,7 @@ class Settings(BaseSettings):
             alert_context=OperatorAlertContext(
                 host_label=self.host_label,
                 include_hostname_in_alerts=self.include_hostname_in_alerts,
-                include_utc_timestamp_in_alerts=self.include_utc_timestamp_in_alerts,
+                include_checked_at_in_alerts=self.include_checked_at_in_alerts,
                 alert_timezone=self.alert_timezone,
             ),
         )

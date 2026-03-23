@@ -17,7 +17,7 @@ def format_listing_alert(run_summary: RunSummary) -> str:
 
     if context.include_hostname_in_alerts and run_summary.host_label is not None:
         lines.append(f"Host: {run_summary.host_label}")
-    if context.include_utc_timestamp_in_alerts:
+    if context.include_checked_at_in_alerts:
         lines.append(
             _format_checked_at_line(
                 checked_at_utc=run_summary.checked_at_utc,

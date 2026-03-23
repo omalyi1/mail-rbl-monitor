@@ -2,10 +2,10 @@
 
 ## Prerequisites
 
-- `uv`
 - Python 3.12 or newer
+- `uv`
 
-If Python 3.12 is not already available locally:
+If Python 3.12 is not already installed locally:
 
 ```bash
 uv python install 3.12
@@ -18,61 +18,65 @@ uv sync --group dev
 cp .env.example .env
 ```
 
-Edit `.env` with the target IPv4 addresses and DNSBL providers you want to monitor. Leave `MAIL_RBL_MONITOR_DRY_RUN=true` while validating configuration locally, then switch it to `false` when you want to exercise the real DNS and notification path.
+Edit `.env` with the target IPv4 addresses and provider domains you want to monitor.
+Keep `MAIL_RBL_MONITOR_DRY_RUN=true` while validating configuration locally.
 
-For deployment-oriented examples, copy [.env.prod.example](/home/om/projects/golos/.env.prod.example) into your runtime env file instead of using `.env.example`.
+For production-oriented examples, start from [`.env.prod.example`](../.env.prod.example).
 
-Optional alert context settings are also available:
+## Validation workflow
 
-- `MAIL_RBL_MONITOR_HOST_LABEL`
-- `MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS`
-- `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS`
-- `MAIL_RBL_MONITOR_ALERT_TIMEZONE`
-
-## Day-to-day commands
-
-Validate configuration with the canonical dry-run path:
+Dry-run is the canonical validation path:
 
 ```bash
 uv run mail-rbl-monitor --dry-run
 ```
 
-Run the dry-run bootstrap flow:
-
-```bash
-uv run mail-rbl-monitor --dry-run
-```
-
-Run the real monitoring flow:
-
-```bash
-MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor
-```
-
-Run the dry-run JSON flow:
+Dry-run JSON validation:
 
 ```bash
 uv run mail-rbl-monitor --dry-run --json
 ```
 
-Run the real monitoring flow with JSON output:
+## Real run examples
+
+Human-readable real run:
+
+```bash
+MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor
+```
+
+JSON real run:
 
 ```bash
 MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor --json
 ```
 
-Run tests:
+Example run with explicit env overrides:
 
 ```bash
-uv run pytest
+MAIL_RBL_MONITOR_DRY_RUN=false \
+MAIL_RBL_MONITOR_TARGET_IPS=136.243.71.222 \
+MAIL_RBL_MONITOR_DNSBL_PROVIDERS=zen.spamhaus.org,bl.spamcop.net \
+uv run mail-rbl-monitor
 ```
 
-Run lint and formatting checks:
+## Alert presentation settings
+
+- `MAIL_RBL_MONITOR_HOST_LABEL`
+- `MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS`
+- `MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS`
+- `MAIL_RBL_MONITOR_ALERT_TIMEZONE`
+
+`MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS` is still accepted as a deprecated
+compatibility alias for the checked-at setting.
+
+## Quality checks
 
 ```bash
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
+uv run pytest
 ```
 
 Helper scripts are also available:
@@ -82,26 +86,17 @@ Helper scripts are also available:
 ./scripts/test.sh
 ```
 
-Example real run with explicit env overrides:
+## Safe local notifier testing
 
-```bash
-MAIL_RBL_MONITOR_DRY_RUN=false \
-MAIL_RBL_MONITOR_TARGET_IPS=136.243.71.222 \
-MAIL_RBL_MONITOR_DNSBL_PROVIDERS=zen.spamhaus.org,bl.spamcop.net \
-uv run mail-rbl-monitor
-```
+- use `--dry-run` with placeholder notifier credentials to validate configuration without
+  DNS or HTTP side effects
+- do not use real production notifier secrets in a committed `.env`
+- if you need a live notifier test, use temporary credentials pointed at a test chat or
+  webhook and run it manually
 
-Safe local testing flow for notification-enabled configs:
+## Contributor expectations
 
-- use `--dry-run` with placeholder notifier credentials to validate config without DNS or HTTP side effects
-- do not use real production notifier secrets in local `.env` files
-- if you need a live notifier test, use temporary credentials pointed at a test chat or webhook and run it manually outside the committed env examples
-
-## Development expectations
-
-- keep application logic out of the CLI layer
+- keep the one-shot CLI architecture intact unless a change is discussed explicitly
 - keep infrastructure behavior behind typed ports
-- avoid introducing stateful infrastructure until a concrete requirement exists
 - keep tests deterministic and free of live network calls
-- prefer mocking DNS and HTTP boundaries instead of monkeypatching domain logic
-- keep JSON serialization at the presentation boundary rather than mixing it into DNS or notifier adapters
+- keep docs aligned with code and actual commands

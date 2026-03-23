@@ -2,10 +2,12 @@
 
 ## First deployment checklist
 
-1. Copy [.env.prod.example](/home/om/projects/golos/.env.prod.example) to your deployment env file and fill the real values.
-2. Validate that at least one target IP and one provider are configured.
+1. Copy [`.env.prod.example`](../.env.prod.example) to your deployment env file and fill
+   the real values.
+2. Configure at least one target IPv4 address and one provider.
 3. Leave notifier channels disabled until their credentials are ready.
-4. Install the `systemd` units from [deploy/systemd/README.md](/home/om/projects/golos/deploy/systemd/README.md) or configure `cron`.
+4. Install the `systemd` units from [`deploy/systemd/README.md`](../deploy/systemd/README.md)
+   or configure `cron`.
 
 ## Validate configuration
 
@@ -38,7 +40,7 @@ uv run mail-rbl-monitor --json
 ## Exit code interpretation
 
 - `0`: completed successfully, no listings found
-- `20`: one or more listings found and notifications were handled successfully
+- `20`: one or more listings found and notifications completed successfully
 - `30`: no listings found, but one or more provider checks failed
 - `1`: configuration failure, application failure, or notification failure
 
@@ -63,9 +65,9 @@ Failure payloads include:
 ### Listing found
 
 1. Confirm which target IPs and providers are listed.
-2. Review the alert text and JSON results for returned `A` and `TXT` data.
+2. Review returned `A` and `TXT` data in logs or JSON output.
 3. Triage the mail host and its reputation posture.
-4. Confirm the notification channels delivered successfully.
+4. Confirm the intended notification channels delivered successfully.
 
 ### Provider errors only
 
@@ -76,7 +78,7 @@ Failure payloads include:
 
 ### Notification failure
 
-1. Inspect the failure JSON or logs for:
+1. Inspect logs or JSON for:
    - `failed_channel`
    - `attempted_notification_channels`
    - `notifications_sent_before_failure`

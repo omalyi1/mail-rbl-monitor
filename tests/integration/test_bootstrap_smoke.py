@@ -12,6 +12,8 @@ _BASE_ENV = {
     "MAIL_RBL_MONITOR_DNSBL_PROVIDERS": "zen.spamhaus.org,b.barracudacentral.org,bl.spamcop.net",
     "MAIL_RBL_MONITOR_ENABLE_TELEGRAM": "false",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD": "false",
+    "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS": "true",
+    "MAIL_RBL_MONITOR_ALERT_TIMEZONE": "Etc/UTC",
     "MAIL_RBL_MONITOR_TIMEOUT_SECONDS": "5",
     "MAIL_RBL_MONITOR_DRY_RUN": "true",
 }

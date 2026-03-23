@@ -28,11 +28,12 @@ def test_env_prod_example_exists_and_matches_current_settings_surface() -> None:
         "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
         "MAIL_RBL_MONITOR_HOST_LABEL",
         "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
-        "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
+        "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
         "MAIL_RBL_MONITOR_ALERT_TIMEZONE",
     }
     assert "MAIL_RBL_MONITOR_TELEGRAM_BOT_TOKEN=\n" in text
     assert "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL=\n" in text
+    assert "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS" not in text
     assert "telegram-token" not in text
     assert "discord.example/webhook" not in text
 
@@ -62,3 +63,31 @@ def test_systemd_readme_exists_and_contains_operator_commands() -> None:
     assert "systemctl enable --now mail-rbl-monitor.timer" in text
     assert "systemctl start mail-rbl-monitor.service" in text
     assert "journalctl -u mail-rbl-monitor.service" in text
+
+
+def test_public_release_files_exist() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+
+    assert (repo_root / "LICENSE").is_file()
+    assert (repo_root / "CONTRIBUTING.md").is_file()
+    assert (repo_root / "CODE_OF_CONDUCT.md").is_file()
+    assert (repo_root / "SECURITY.md").is_file()
+    assert (repo_root / ".github" / "ISSUE_TEMPLATE" / "bug_report.md").is_file()
+    assert (repo_root / ".github" / "ISSUE_TEMPLATE" / "feature_request.md").is_file()
+    assert (repo_root / ".github" / "pull_request_template.md").is_file()
+
+
+def test_public_docs_do_not_contain_absolute_local_paths() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    files = (
+        repo_root / "README.md",
+        repo_root / "docs" / "local-development.md",
+        repo_root / "docs" / "operations.md",
+        repo_root / "docs" / "security.md",
+        repo_root / "docs" / "runbook.md",
+        repo_root / "docs" / "release-checklist.md",
+        repo_root / "deploy" / "systemd" / "README.md",
+    )
+
+    for path in files:
+        assert "/home/om/projects/golos" not in path.read_text(encoding="utf-8")

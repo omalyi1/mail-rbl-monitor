@@ -104,8 +104,12 @@ class TargetCheckResult:
 class OperatorAlertContext:
     host_label: str | None
     include_hostname_in_alerts: bool
-    include_utc_timestamp_in_alerts: bool
+    include_checked_at_in_alerts: bool
     alert_timezone: str
+
+    @property
+    def include_utc_timestamp_in_alerts(self) -> bool:
+        return self.include_checked_at_in_alerts
 
 
 @dataclass(frozen=True, slots=True)

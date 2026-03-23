@@ -9,7 +9,9 @@ This directory contains example unit files for running `mail-rbl-monitor` as a o
 
 ## Install the unit files
 
-Copy the files into `/etc/systemd/system/` on the target host:
+After cloning the repository and preparing an environment file based on
+[`../../.env.prod.example`](../../.env.prod.example), copy the unit files into
+`/etc/systemd/system/` on the target host:
 
 ```bash
 sudo cp deploy/systemd/mail-rbl-monitor.service /etc/systemd/system/

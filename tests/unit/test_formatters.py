@@ -18,7 +18,7 @@ from mail_rbl_monitor.domain.models import (
 def _build_run_summary(
     *,
     include_hostname_in_alerts: bool,
-    include_utc_timestamp_in_alerts: bool,
+    include_checked_at_in_alerts: bool,
     host_label: str | None,
     alert_timezone: str,
     checked_at_utc: str = "2026-03-23T10:12:02Z",
@@ -39,7 +39,7 @@ def _build_run_summary(
             alert_context=OperatorAlertContext(
                 host_label=host_label,
                 include_hostname_in_alerts=include_hostname_in_alerts,
-                include_utc_timestamp_in_alerts=include_utc_timestamp_in_alerts,
+                include_checked_at_in_alerts=include_checked_at_in_alerts,
                 alert_timezone=alert_timezone,
             ),
         ),
@@ -66,7 +66,7 @@ def _build_run_summary(
 def test_format_listing_alert_includes_operator_context_when_enabled() -> None:
     run_summary = _build_run_summary(
         include_hostname_in_alerts=True,
-        include_utc_timestamp_in_alerts=True,
+        include_checked_at_in_alerts=True,
         host_label="mail-01",
         alert_timezone="Europe/Kyiv",
     )
@@ -83,7 +83,7 @@ def test_format_listing_alert_includes_operator_context_when_enabled() -> None:
 def test_format_listing_alert_omits_optional_context_when_disabled() -> None:
     run_summary = _build_run_summary(
         include_hostname_in_alerts=False,
-        include_utc_timestamp_in_alerts=False,
+        include_checked_at_in_alerts=False,
         host_label="mail-01",
         alert_timezone="Europe/Kyiv",
     )

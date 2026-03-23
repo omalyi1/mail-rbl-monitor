@@ -1,11 +1,15 @@
 # Security
 
+This document covers deployment and operational security guidance. Public vulnerability
+reporting expectations live in [`SECURITY.md`](../SECURITY.md).
+
 ## Secrets handling
 
 - keep real notifier credentials out of version control
-- do not commit `.env`, deployment env files, or copied secrets
-- leave secret fields blank in examples such as [.env.prod.example](/home/om/projects/golos/.env.prod.example)
-- inject Telegram bot tokens and Discord webhook URLs only through environment files or a secure secret manager
+- do not commit `.env`, copied production env files, or pasted secrets
+- leave secret fields blank in examples such as [`.env.prod.example`](../.env.prod.example)
+- inject Telegram bot tokens and Discord webhook URLs through environment files or a
+  secure secret manager
 
 ## Least-privilege deployment
 
