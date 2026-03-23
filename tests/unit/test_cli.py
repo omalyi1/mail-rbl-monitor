@@ -19,8 +19,8 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
     "MAIL_RBL_MONITOR_HOST_LABEL",
     "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
-    "MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS",
     "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
+    "MAIL_RBL_MONITOR_ALERT_TIMEZONE",
     "MAIL_RBL_MONITOR_TIMEOUT_SECONDS",
     "MAIL_RBL_MONITOR_DRY_RUN",
 )
@@ -93,8 +93,8 @@ def test_determine_exit_code_returns_success_for_clean_summary() -> None:
             alert_context=OperatorAlertContext(
                 host_label=None,
                 include_hostname_in_alerts=True,
-                include_environment_in_alerts=True,
                 include_utc_timestamp_in_alerts=True,
+                alert_timezone="Etc/UTC",
             ),
         ),
         checked_at_utc="2026-03-20T09:00:00Z",

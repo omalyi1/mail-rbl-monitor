@@ -16,7 +16,7 @@ Phase 4 finishes the production-readiness pass on top of the existing monitoring
 - real Telegram and Discord delivery adapters with `httpx`
 - provider-driven results for clean, listed, and provider-error states
 - stable `--json` output for schedulers and scripts
-- concise alert context with environment, host, and UTC timestamp controls
+- concise alert context with host and local-time controls
 - structured notification failure accounting
 - secret-safe operator-facing failure output
 - production env examples, runbooks, systemd docs, and release checklist
@@ -102,8 +102,8 @@ When a notification failure occurs, the JSON failure payload now includes operat
 
 - `MAIL_RBL_MONITOR_HOST_LABEL`: optional operator-facing label such as `mail-01`
 - `MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS`: include the configured host label, or fall back to the system hostname when no label is set
-- `MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS`: include `APP_ENV` in alert text
-- `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS`: include the UTC run timestamp in alert text
+- `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS`: include the per-run checked time in alert text
+- `MAIL_RBL_MONITOR_ALERT_TIMEZONE`: IANA timezone used when rendering the human-facing alert timestamp, for example `Europe/Kyiv`
 
 These settings affect alert formatting and JSON context only. They do not change DNS or notifier behavior.
 

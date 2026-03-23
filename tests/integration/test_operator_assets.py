@@ -28,8 +28,8 @@ def test_env_prod_example_exists_and_matches_current_settings_surface() -> None:
         "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
         "MAIL_RBL_MONITOR_HOST_LABEL",
         "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
-        "MAIL_RBL_MONITOR_INCLUDE_ENVIRONMENT_IN_ALERTS",
         "MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS",
+        "MAIL_RBL_MONITOR_ALERT_TIMEZONE",
     }
     assert "MAIL_RBL_MONITOR_TELEGRAM_BOT_TOKEN=\n" in text
     assert "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL=\n" in text

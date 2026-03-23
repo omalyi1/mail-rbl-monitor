@@ -104,8 +104,8 @@ class TargetCheckResult:
 class OperatorAlertContext:
     host_label: str | None
     include_hostname_in_alerts: bool
-    include_environment_in_alerts: bool
     include_utc_timestamp_in_alerts: bool
+    alert_timezone: str
 
 
 @dataclass(frozen=True, slots=True)

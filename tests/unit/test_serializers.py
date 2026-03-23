@@ -33,8 +33,8 @@ def _build_runtime_config(*, dry_run: bool) -> AppRuntimeConfigSummary:
         alert_context=OperatorAlertContext(
             host_label="mail-01",
             include_hostname_in_alerts=True,
-            include_environment_in_alerts=True,
             include_utc_timestamp_in_alerts=True,
+            alert_timezone="Etc/UTC",
         ),
     )
 

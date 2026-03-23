@@ -74,6 +74,7 @@ def _build_settings(
             "telegram_chat_id": "123456" if enable_telegram else None,
             "enable_discord": enable_discord,
             "discord_webhook_url": "https://discord.example/webhook" if enable_discord else None,
+            "alert_timezone": "Europe/Kyiv",
             "timeout_seconds": 5,
             "dry_run": dry_run,
         }
@@ -146,8 +147,8 @@ def test_application_listed_run_sends_notifications_and_returns_listing_exit_cod
         NotificationChannel.DISCORD,
     )
     assert summary.alert_message is not None
-    assert "Environment: test" in summary.alert_message
-    assert "Checked at (UTC): " in summary.alert_message
+    assert "Environment: " not in summary.alert_message
+    assert "Checked at (Europe/Kyiv): " in summary.alert_message
     assert "Target IP: 136.243.71.222" in summary.alert_message
     assert "Spamhaus ZEN (zen.spamhaus.org)" in summary.alert_message
     assert telegram_sender.sent_messages == [summary.alert_message]

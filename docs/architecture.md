@@ -36,8 +36,8 @@ Phase 3 adds controlled operator context:
 
 - optional host label
 - optional hostname fallback inclusion
-- optional environment inclusion in alerts
-- optional UTC timestamp inclusion in alerts
+- optional checked-time inclusion in alerts
+- configurable IANA timezone rendering for the human-facing alert timestamp
 
 This context is resolved once for each run, then propagated through the run summary so human alerts and JSON output describe the same execution.
 

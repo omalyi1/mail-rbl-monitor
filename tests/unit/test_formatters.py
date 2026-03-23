@@ -18,9 +18,10 @@ from mail_rbl_monitor.domain.models import (
 def _build_run_summary(
     *,
     include_hostname_in_alerts: bool,
-    include_environment_in_alerts: bool,
     include_utc_timestamp_in_alerts: bool,
     host_label: str | None,
+    alert_timezone: str,
+    checked_at_utc: str = "2026-03-23T10:12:02Z",
 ) -> RunSummary:
     target_ip = TargetIP.from_raw("136.243.71.222")
     provider = DnsblProvider.from_raw("zen.spamhaus.org")
@@ -38,11 +39,11 @@ def _build_run_summary(
             alert_context=OperatorAlertContext(
                 host_label=host_label,
                 include_hostname_in_alerts=include_hostname_in_alerts,
-                include_environment_in_alerts=include_environment_in_alerts,
                 include_utc_timestamp_in_alerts=include_utc_timestamp_in_alerts,
+                alert_timezone=alert_timezone,
             ),
         ),
-        checked_at_utc="2026-03-20T09:00:00Z",
+        checked_at_utc=checked_at_utc,
         host_label=host_label,
         target_results=(
             TargetCheckResult(
@@ -65,31 +66,31 @@ def _build_run_summary(
 def test_format_listing_alert_includes_operator_context_when_enabled() -> None:
     run_summary = _build_run_summary(
         include_hostname_in_alerts=True,
-        include_environment_in_alerts=True,
         include_utc_timestamp_in_alerts=True,
         host_label="mail-01",
+        alert_timezone="Europe/Kyiv",
     )
 
     message = format_listing_alert(run_summary)
 
     assert "[mail-rbl-monitor] LISTING DETECTED" in message
-    assert "Environment: prod" in message
+    assert "Environment: " not in message
     assert "Host: mail-01" in message
-    assert "Checked at (UTC): 2026-03-20T09:00:00Z" in message
+    assert "Checked at (Europe/Kyiv): 2026-03-23 12:12:02" in message
     assert "Spamhaus ZEN (zen.spamhaus.org)" in message
 
 
 def test_format_listing_alert_omits_optional_context_when_disabled() -> None:
     run_summary = _build_run_summary(
         include_hostname_in_alerts=False,
-        include_environment_in_alerts=False,
         include_utc_timestamp_in_alerts=False,
         host_label="mail-01",
+        alert_timezone="Europe/Kyiv",
     )
 
     message = format_listing_alert(run_summary)
 
     assert "Environment: " not in message
     assert "Host: " not in message
-    assert "Checked at (UTC): " not in message
+    assert "Checked at (" not in message
     assert "Target IP: 136.243.71.222" in message

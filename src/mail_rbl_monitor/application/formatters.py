@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from mail_rbl_monitor.constants import APP_NAME
 from mail_rbl_monitor.domain.models import ProviderCheckResult, RunSummary
 from mail_rbl_monitor.infrastructure.providers.catalog import get_provider_metadata
@@ -12,12 +15,15 @@ def format_listing_alert(run_summary: RunSummary) -> str:
     lines = [f"[{APP_NAME}] LISTING DETECTED"]
     context = run_summary.runtime_config.alert_context
 
-    if context.include_environment_in_alerts:
-        lines.append(f"Environment: {run_summary.runtime_config.environment.value}")
     if context.include_hostname_in_alerts and run_summary.host_label is not None:
         lines.append(f"Host: {run_summary.host_label}")
     if context.include_utc_timestamp_in_alerts:
-        lines.append(f"Checked at (UTC): {run_summary.checked_at_utc}")
+        lines.append(
+            _format_checked_at_line(
+                checked_at_utc=run_summary.checked_at_utc,
+                timezone_name=context.alert_timezone,
+            )
+        )
 
     if len(lines) > 1:
         lines.append("")
@@ -51,3 +57,9 @@ def _format_provider_result(result: ProviderCheckResult) -> str:
     if provider_label != result.provider.name:
         provider_label = f"{provider_label} ({result.provider.name})"
     return f"- {provider_label}{suffix}"
+
+
+def _format_checked_at_line(*, checked_at_utc: str, timezone_name: str) -> str:
+    checked_at = datetime.fromisoformat(checked_at_utc.replace("Z", "+00:00"))
+    localized = checked_at.astimezone(ZoneInfo(timezone_name))
+    return f"Checked at ({timezone_name}): {localized.strftime('%Y-%m-%d %H:%M:%S')}"

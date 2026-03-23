@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Annotated, Self
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     AliasChoices,
@@ -70,8 +71,8 @@ class Settings(BaseSettings):
     discord_webhook_url: SecretStr | None = None
     host_label: str | None = None
     include_hostname_in_alerts: bool = True
-    include_environment_in_alerts: bool = True
     include_utc_timestamp_in_alerts: bool = True
+    alert_timezone: str = "Etc/UTC"
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     dry_run: bool = True
 
@@ -88,6 +89,20 @@ class Settings(BaseSettings):
             raise ValueError(
                 "APP_LOG_LEVEL must be one of CRITICAL, ERROR, WARNING, INFO, or DEBUG."
             )
+        return normalized
+
+    @field_validator("alert_timezone")
+    @classmethod
+    def validate_alert_timezone(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("MAIL_RBL_MONITOR_ALERT_TIMEZONE must not be empty.")
+        try:
+            ZoneInfo(normalized)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(
+                "MAIL_RBL_MONITOR_ALERT_TIMEZONE must be a valid IANA timezone."
+            ) from exc
         return normalized
 
     @field_validator("target_ips", mode="before")
@@ -193,8 +208,8 @@ class Settings(BaseSettings):
             alert_context=OperatorAlertContext(
                 host_label=self.host_label,
                 include_hostname_in_alerts=self.include_hostname_in_alerts,
-                include_environment_in_alerts=self.include_environment_in_alerts,
                 include_utc_timestamp_in_alerts=self.include_utc_timestamp_in_alerts,
+                alert_timezone=self.alert_timezone,
             ),
         )
 

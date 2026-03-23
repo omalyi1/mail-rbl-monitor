@@ -51,8 +51,8 @@ def test_run_summary_reports_listing_and_error_counts() -> None:
         alert_context=OperatorAlertContext(
             host_label="mail-01",
             include_hostname_in_alerts=True,
-            include_environment_in_alerts=True,
             include_utc_timestamp_in_alerts=True,
+            alert_timezone="Etc/UTC",
         ),
     )
     run_summary = RunSummary(
