@@ -90,4 +90,7 @@ def configure_logging(level: str) -> None:
     root_logger.setLevel(level.upper())
     root_logger.addHandler(handler)
 
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
     logging.captureWarnings(True)

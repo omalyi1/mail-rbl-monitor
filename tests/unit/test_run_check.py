@@ -62,6 +62,7 @@ def _build_settings(
     dry_run: bool = False,
     enable_telegram: bool = False,
     enable_discord: bool = False,
+    providers: list[str] | None = None,
 ) -> Settings:
     return Settings.model_validate(
         {
@@ -69,7 +70,7 @@ def _build_settings(
             "app_log_level": "INFO",
             "target_ips": ["136.243.71.222"],
             "target_hosts": {},
-            "dnsbl_providers": ["zen.spamhaus.org"],
+            "dnsbl_providers": providers or ["zen.spamhaus.org"],
             "enable_telegram": enable_telegram,
             "telegram_bot_token": "telegram-token" if enable_telegram else None,
             "telegram_chat_id": "123456" if enable_telegram else None,
@@ -178,6 +179,97 @@ def test_application_provider_error_only_run_returns_degraded_exit_code() -> Non
     assert summary.error_results[0].error_kind == ProviderErrorKind.TIMEOUT
     assert sender.sent_messages == []
     assert determine_exit_code(summary) == ExitCode.PROVIDER_ERRORS
+
+
+def test_application_spamhaus_open_resolver_result_does_not_send_listing_notification() -> None:
+    settings = _build_settings(
+        dry_run=False,
+        enable_telegram=True,
+        providers=["zen.spamhaus.org", "bl.spamcop.net"],
+    )
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    spamhaus_provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    spamcop_provider = DnsblProvider.from_raw("bl.spamcop.net")
+    resolver = FakeDnsResolver(
+        {
+            (str(target_ip), spamhaus_provider.name): ProviderCheckResult(
+                target_ip=target_ip,
+                provider=spamhaus_provider,
+                query_name=build_dnsbl_query_name(target_ip.value, spamhaus_provider.name),
+                status=ListingStatus.ERROR,
+                listed_addresses=("127.255.255.254",),
+                txt_reasons=("Error: open resolver",),
+                error_message=(
+                    "Spamhaus special return code 127.255.255.254 indicates an open resolver."
+                ),
+                error_kind=ProviderErrorKind.OPEN_RESOLVER,
+                latency_ms=12,
+            ),
+            (str(target_ip), spamcop_provider.name): ProviderCheckResult(
+                target_ip=target_ip,
+                provider=spamcop_provider,
+                query_name=build_dnsbl_query_name(target_ip.value, spamcop_provider.name),
+                status=ListingStatus.CLEAN,
+                latency_ms=12,
+            ),
+        }
+    )
+    sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+
+    summary = run_check(settings, dns_resolver=resolver, notification_senders=(sender,))
+
+    assert summary.has_listings is False
+    assert summary.listed_count == 0
+    assert summary.error_count == 1
+    assert summary.error_results[0].error_kind == ProviderErrorKind.OPEN_RESOLVER
+    assert sender.sent_messages == []
+    assert determine_exit_code(summary) == ExitCode.PROVIDER_ERRORS
+
+
+def test_application_mixed_listing_and_provider_error_prefers_listing_exit_code() -> None:
+    settings = _build_settings(
+        dry_run=False,
+        enable_telegram=True,
+        providers=["zen.spamhaus.org", "bl.spamcop.net"],
+    )
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    spamhaus_provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    spamcop_provider = DnsblProvider.from_raw("bl.spamcop.net")
+    resolver = FakeDnsResolver(
+        {
+            (str(target_ip), spamhaus_provider.name): ProviderCheckResult(
+                target_ip=target_ip,
+                provider=spamhaus_provider,
+                query_name=build_dnsbl_query_name(target_ip.value, spamhaus_provider.name),
+                status=ListingStatus.ERROR,
+                listed_addresses=("127.255.255.254",),
+                error_message=(
+                    "Spamhaus special return code 127.255.255.254 indicates an open resolver."
+                ),
+                error_kind=ProviderErrorKind.OPEN_RESOLVER,
+                latency_ms=12,
+            ),
+            (str(target_ip), spamcop_provider.name): ProviderCheckResult(
+                target_ip=target_ip,
+                provider=spamcop_provider,
+                query_name=build_dnsbl_query_name(target_ip.value, spamcop_provider.name),
+                status=ListingStatus.LISTED,
+                listed_addresses=("127.0.0.2",),
+                txt_reasons=("SpamCop listed",),
+                latency_ms=12,
+            ),
+        }
+    )
+    sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+
+    summary = run_check(settings, dns_resolver=resolver, notification_senders=(sender,))
+
+    assert summary.has_listings is True
+    assert summary.has_errors is True
+    assert summary.listed_count == 1
+    assert summary.error_count == 1
+    assert sender.sent_messages == [summary.alert_message]
+    assert determine_exit_code(summary) == ExitCode.LISTING_FOUND
 
 
 def test_application_notification_failure_tracks_partial_delivery_and_redacts_secrets(

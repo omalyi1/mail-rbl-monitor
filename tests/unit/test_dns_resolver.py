@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import dns.exception
 import dns.resolver
+import pytest
 
 from mail_rbl_monitor.domain.enums import ListingStatus, ProviderErrorKind
 from mail_rbl_monitor.domain.models import DnsblProvider, TargetIP
@@ -102,6 +103,39 @@ def test_resolver_classifies_a_answer_as_listed_and_reads_txt() -> None:
     assert result.txt_reasons == ("Spamhaus listed", "SBL")
     assert result.error_message is None
     assert result.error_kind is None
+
+
+@pytest.mark.parametrize(
+    ("listed_address", "expected_error_kind"),
+    (
+        ("127.255.255.252", ProviderErrorKind.DNS_EXCEPTION),
+        ("127.255.255.254", ProviderErrorKind.OPEN_RESOLVER),
+        ("127.255.255.255", ProviderErrorKind.DNS_EXCEPTION),
+    ),
+)
+def test_resolver_classifies_spamhaus_special_return_codes_as_provider_errors(
+    listed_address: str,
+    expected_error_kind: ProviderErrorKind,
+) -> None:
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    query_name = build_dnsbl_query_name(target_ip.value, provider.name)
+    resolver = DnsblResolver(
+        resolver=FakeResolver(
+            {
+                (query_name, "A"): [FakeARecord(listed_address)],
+                (query_name, "TXT"): [FakeTxtRecord((b"Error: open resolver",))],
+            }
+        )
+    )
+
+    result = resolver.check_provider(target_ip, provider, timeout_seconds=5)
+
+    assert result.status == ListingStatus.ERROR
+    assert result.listed_addresses == (listed_address,)
+    assert result.txt_reasons == ("Error: open resolver",)
+    assert result.error_kind == expected_error_kind
+    assert result.error_message is not None
 
 
 def test_resolver_classifies_timeout_as_provider_error() -> None:

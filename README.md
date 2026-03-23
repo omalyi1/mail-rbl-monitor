@@ -17,6 +17,10 @@ For each configured target IPv4 address and DNSBL provider, the service:
 5. Sends one alert message through the enabled Telegram and/or Discord channels when any
    listing is detected.
 
+Provider-specific special return codes are interpreted explicitly. For example, Spamhaus
+public-mirror codes such as `127.255.255.252`, `127.255.255.254`, and `127.255.255.255`
+are treated as provider errors rather than real blacklist listings.
+
 The runtime stays small and explicit:
 
 - one-shot command, not a daemon
@@ -46,6 +50,7 @@ This project prefers direct DNS queries because they:
 - stable `--json` output for wrappers and schedulers
 - structured provider error classification
 - secret-safe operator-facing error handling
+- secret-safe outbound logging with `httpx` request-line logs suppressed
 - systemd templates and operator docs
 - pytest, ruff, mypy, and a minimal GitHub Actions CI workflow
 

@@ -15,6 +15,21 @@ from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, T
 from mail_rbl_monitor.domain.ports import DnsResolverPort
 from mail_rbl_monitor.infrastructure.providers.catalog import get_provider_metadata
 
+_SPAMHAUS_SPECIAL_RETURN_CODES: dict[str, tuple[ProviderErrorKind, str]] = {
+    "127.255.255.252": (
+        ProviderErrorKind.DNS_EXCEPTION,
+        "Spamhaus special return code 127.255.255.252 indicates a provider-side error.",
+    ),
+    "127.255.255.254": (
+        ProviderErrorKind.OPEN_RESOLVER,
+        "Spamhaus special return code 127.255.255.254 indicates an open resolver.",
+    ),
+    "127.255.255.255": (
+        ProviderErrorKind.DNS_EXCEPTION,
+        "Spamhaus special return code 127.255.255.255 indicates a provider-side error.",
+    ),
+}
+
 
 class ResolverBackend(Protocol):
     def resolve(
@@ -92,6 +107,24 @@ class DnsblResolver(DnsResolverPort):
                 timeout_seconds=timeout_seconds,
             )
 
+        spamhaus_error = _classify_spamhaus_special_return_code(
+            provider=provider,
+            listed_addresses=listed_addresses,
+        )
+        if spamhaus_error is not None:
+            error_kind, error_message = spamhaus_error
+            return ProviderCheckResult(
+                target_ip=target_ip,
+                provider=provider,
+                query_name=query_name,
+                status=ListingStatus.ERROR,
+                listed_addresses=listed_addresses,
+                txt_reasons=txt_reasons,
+                error_message=error_message,
+                error_kind=error_kind,
+                latency_ms=self._calculate_latency_ms(started_at),
+            )
+
         return ProviderCheckResult(
             target_ip=target_ip,
             provider=provider,
@@ -167,3 +200,19 @@ class DnsblResolver(DnsResolverPort):
     @staticmethod
     def _calculate_latency_ms(started_at: float) -> int:
         return max(0, int((time.perf_counter() - started_at) * 1000))
+
+
+def _classify_spamhaus_special_return_code(
+    *,
+    provider: DnsblProvider,
+    listed_addresses: tuple[str, ...],
+) -> tuple[ProviderErrorKind, str] | None:
+    if provider.name != "zen.spamhaus.org":
+        return None
+
+    for listed_address in listed_addresses:
+        special_return_code = _SPAMHAUS_SPECIAL_RETURN_CODES.get(listed_address)
+        if special_return_code is not None:
+            return special_return_code
+
+    return None

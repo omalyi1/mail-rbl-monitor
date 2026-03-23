@@ -154,6 +154,46 @@ def test_serialize_run_summary_provider_error_shape() -> None:
     assert payload["results"][0]["provider_results"][0]["error_kind"] == "timeout"
 
 
+def test_serialize_run_summary_spamhaus_open_resolver_is_error_not_listing() -> None:
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    run_summary = RunSummary(
+        runtime_config=_build_runtime_config(dry_run=False),
+        checked_at_utc="2026-03-20T09:00:00Z",
+        host_label="mail-01",
+        target_results=(
+            TargetCheckResult(
+                target_ip=target_ip,
+                provider_results=(
+                    ProviderCheckResult(
+                        target_ip=target_ip,
+                        provider=provider,
+                        query_name="222.71.243.136.zen.spamhaus.org",
+                        status=ListingStatus.ERROR,
+                        listed_addresses=("127.255.255.254",),
+                        txt_reasons=("Error: open resolver",),
+                        error_message=(
+                            "Spamhaus special return code 127.255.255.254 indicates "
+                            "an open resolver."
+                        ),
+                        error_kind=ProviderErrorKind.OPEN_RESOLVER,
+                        latency_ms=12,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    payload = serialize_run_summary(run_summary, exit_code=int(ExitCode.PROVIDER_ERRORS))
+    provider_payload = payload["results"][0]["provider_results"][0]
+
+    assert provider_payload["status"] == "error"
+    assert provider_payload["error_kind"] == "open_resolver"
+    assert payload["summary"] is not None
+    assert payload["summary"]["listed_count"] == 0
+    assert payload["summary"]["error_count"] == 1
+
+
 def test_serialize_failure_includes_notification_failure_fields() -> None:
     payload = serialize_failure(
         exit_code=int(ExitCode.FAILURE),

@@ -1,0 +1,45 @@
+---
+description: Preserve correct provider-specific response handling and secret-safe outbound logging.
+globs:
+  - "src/mail_rbl_monitor/infrastructure/dns/resolver.py"
+  - "src/mail_rbl_monitor/application/run_check.py"
+  - "src/mail_rbl_monitor/logging.py"
+  - "src/mail_rbl_monitor/infrastructure/notifications/*.py"
+  - "src/mail_rbl_monitor/presentation/serializers.py"
+  - "tests/unit/test_dns_resolver.py"
+  - "tests/unit/test_run_check.py"
+  - "tests/unit/test_notifications.py"
+  - "tests/unit/test_serializers.py"
+alwaysApply: false
+---
+
+# Provider Response Safety
+
+## Provider-specific DNSBL semantics
+- Do not assume that every DNS A answer means a real blacklist listing.
+- Preserve provider-specific special return-code handling where documented and justified.
+- For Spamhaus public mirrors, `127.255.255.252`, `127.255.255.254`, and `127.255.255.255` must not be treated as real listings.
+- Preserve explicit error classification for Spamhaus-style special return codes such as `open_resolver` where the provider response indicates an infrastructure problem rather than a reputation listing.
+- Provider special return codes must be classified as provider errors, not `listed` and not silently downgraded to `clean`.
+
+## Notification behavior
+- Provider-error-only runs must not trigger listing notifications.
+- Preserve the existing exit-code contract:
+  - listing found => 20
+  - provider errors only => 30
+  - unrecoverable failure => 1
+  - clean run => 0
+
+## Secret-safe outbound logging
+- Outbound HTTP client logging must never expose secrets such as Telegram bot tokens or Discord webhook URLs.
+- Keep `httpx` / `httpcore` request-line logs suppressed or safely redacted at operator-facing log levels.
+- Do not rely on “nobody will read the logs” assumptions.
+
+## Operator-facing safety
+- Exceptions, JSON payloads, and logs must remain secret-safe.
+- Do not surface raw secret-bearing URLs or tokens from upstream exceptions.
+- Preserve concise, actionable, operator-friendly failure messages.
+
+## Regression coverage
+- Any change to provider response handling must include tests for provider-specific special codes.
+- Any change to outbound logging or notification error handling must include tests for secret safety.

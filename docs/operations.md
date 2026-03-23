@@ -60,12 +60,17 @@ If a listing is found and notification delivery fails, the process exits with `1
 - the run exits with `20`
 - one alert message is sent through the enabled notifiers
 - if a notifier fails, the run instead exits with `1`
+- provider-specific special return codes that indicate resolver or provider problems are not
+  treated as listings
 
 ### Provider errors only
 
 - the run exits with `30`
 - the target IPs must not be treated as clean
 - inspect provider `error_kind` values before deciding whether to re-run
+- listing notifications are not sent for provider-error-only runs
+- for Spamhaus public mirrors, `127.255.255.252`, `127.255.255.254`, and
+  `127.255.255.255` are treated as provider errors, not blacklist listings
 
 ### Notification failure
 
@@ -81,6 +86,7 @@ If a listing is found and notification delivery fails, the process exits with `1
 Provider failures are classified explicitly:
 
 - `timeout`
+- `open_resolver`
 - `no_answer`
 - `no_nameservers`
 - `dns_exception`

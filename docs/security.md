@@ -24,6 +24,8 @@ reporting expectations live in [`SECURITY.md`](../SECURITY.md).
 - secrets must never appear in JSON output
 - notification failures are rendered with stable operator-safe messages
 - alert messages include operational context, but not credentials or secret URLs
+- outbound `httpx` and `httpcore` request-line logs are suppressed at operator-facing log
+  levels so request URLs do not leak Telegram bot tokens or Discord webhook paths
 
 ## What not to commit
 
