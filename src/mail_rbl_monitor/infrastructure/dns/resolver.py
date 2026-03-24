@@ -9,11 +9,26 @@ from typing import Protocol
 import dns.exception
 import dns.resolver
 
-from mail_rbl_monitor.domain.enums import ListingStatus, ProviderErrorKind
+from mail_rbl_monitor.domain.enums import ListingStatus, ProviderErrorKind, ProviderMode
 from mail_rbl_monitor.domain.exceptions import ProviderResolutionError
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
 from mail_rbl_monitor.domain.ports import DnsResolverPort
-from mail_rbl_monitor.infrastructure.providers.catalog import get_provider_metadata
+from mail_rbl_monitor.infrastructure.providers.catalog import build_provider_query_context
+
+_SPAMHAUS_SPECIAL_RETURN_CODES: dict[str, tuple[ProviderErrorKind, str]] = {
+    "127.255.255.252": (
+        ProviderErrorKind.DNS_EXCEPTION,
+        "Spamhaus special return code 127.255.255.252 indicates a provider-side error.",
+    ),
+    "127.255.255.254": (
+        ProviderErrorKind.OPEN_RESOLVER,
+        "Spamhaus special return code 127.255.255.254 indicates an open resolver.",
+    ),
+    "127.255.255.255": (
+        ProviderErrorKind.DNS_EXCEPTION,
+        "Spamhaus special return code 127.255.255.255 indicates a provider-side error.",
+    ),
+}
 
 
 class ResolverBackend(Protocol):
@@ -53,50 +68,78 @@ def _normalize_txt_record(record: object) -> str:
 
 @dataclass(slots=True)
 class DnsblResolver(DnsResolverPort):
+    spamhaus_dqs_key: str | None = None
     resolver: ResolverBackend = field(default_factory=dns.resolver.Resolver)
 
     def check_provider(
         self, target_ip: TargetIP, provider: DnsblProvider, timeout_seconds: int
     ) -> ProviderCheckResult:
-        query_name = build_dnsbl_query_name(target_ip.value, provider.name)
+        query_context = build_provider_query_context(
+            provider=provider,
+            spamhaus_dqs_key=self.spamhaus_dqs_key,
+        )
+        actual_query_name = build_dnsbl_query_name(target_ip.value, query_context.query_zone)
+        safe_query_name = build_dnsbl_query_name(target_ip.value, query_context.safe_query_zone)
         started_at = time.perf_counter()
 
         try:
             listed_addresses = self._resolve_a(
-                query_name=query_name, timeout_seconds=timeout_seconds
+                query_name=actual_query_name, timeout_seconds=timeout_seconds
             )
         except dns.resolver.NXDOMAIN:
             return ProviderCheckResult(
                 target_ip=target_ip,
                 provider=provider,
-                query_name=query_name,
+                query_name=safe_query_name,
                 status=ListingStatus.CLEAN,
+                provider_mode=query_context.provider_mode,
                 latency_ms=self._calculate_latency_ms(started_at),
             )
         except ProviderResolutionError as exc:
             return ProviderCheckResult(
                 target_ip=target_ip,
                 provider=provider,
-                query_name=query_name,
+                query_name=safe_query_name,
                 status=ListingStatus.ERROR,
+                provider_mode=query_context.provider_mode,
                 error_message=str(exc),
                 error_kind=exc.error_kind,
                 latency_ms=self._calculate_latency_ms(started_at),
             )
 
         txt_reasons: tuple[str, ...] = ()
-        provider_metadata = get_provider_metadata(provider)
-        if provider_metadata.supports_txt:
+        if query_context.supports_txt:
             txt_reasons = self._resolve_txt_best_effort(
-                query_name=query_name,
+                query_name=actual_query_name,
                 timeout_seconds=timeout_seconds,
+            )
+
+        spamhaus_error = _classify_spamhaus_special_return_code(
+            provider=provider,
+            provider_mode=query_context.provider_mode,
+            listed_addresses=listed_addresses,
+        )
+        if spamhaus_error is not None:
+            error_kind, error_message = spamhaus_error
+            return ProviderCheckResult(
+                target_ip=target_ip,
+                provider=provider,
+                query_name=safe_query_name,
+                status=ListingStatus.ERROR,
+                provider_mode=query_context.provider_mode,
+                listed_addresses=listed_addresses,
+                txt_reasons=txt_reasons,
+                error_message=error_message,
+                error_kind=error_kind,
+                latency_ms=self._calculate_latency_ms(started_at),
             )
 
         return ProviderCheckResult(
             target_ip=target_ip,
             provider=provider,
-            query_name=query_name,
+            query_name=safe_query_name,
             status=ListingStatus.LISTED,
+            provider_mode=query_context.provider_mode,
             listed_addresses=listed_addresses,
             txt_reasons=txt_reasons,
             latency_ms=self._calculate_latency_ms(started_at),
@@ -167,3 +210,20 @@ class DnsblResolver(DnsResolverPort):
     @staticmethod
     def _calculate_latency_ms(started_at: float) -> int:
         return max(0, int((time.perf_counter() - started_at) * 1000))
+
+
+def _classify_spamhaus_special_return_code(
+    *,
+    provider: DnsblProvider,
+    provider_mode: ProviderMode,
+    listed_addresses: tuple[str, ...],
+) -> tuple[ProviderErrorKind, str] | None:
+    if provider.name != "zen.spamhaus.org" or provider_mode != ProviderMode.PUBLIC_MIRROR:
+        return None
+
+    for listed_address in listed_addresses:
+        special_return_code = _SPAMHAUS_SPECIAL_RETURN_CODES.get(listed_address)
+        if special_return_code is not None:
+            return special_return_code
+
+    return None

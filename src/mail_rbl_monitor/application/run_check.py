@@ -50,7 +50,13 @@ def run_check(
             host_label=host_label,
         )
 
-    resolver = dns_resolver or DnsblResolver()
+    resolver = dns_resolver or DnsblResolver(
+        spamhaus_dqs_key=(
+            settings.spamhaus_dqs_key.get_secret_value()
+            if settings.spamhaus_dqs_key is not None
+            else None
+        )
+    )
     target_results = tuple(
         _check_target(target_ip=target_ip, summary=summary, resolver=resolver, logger=logger)
         for target_ip in summary.target_ips
@@ -178,6 +184,9 @@ def _log_provider_result(*, provider_result: ProviderCheckResult, logger: loggin
         "event": "check.provider",
         "latency_ms": provider_result.latency_ms,
         "provider": provider_result.provider.name,
+        "provider_mode": provider_result.provider_mode.value
+        if provider_result.provider_mode is not None
+        else None,
         "query_name": provider_result.query_name,
         "status": provider_result.status.value,
         "target_ip": str(provider_result.target_ip),

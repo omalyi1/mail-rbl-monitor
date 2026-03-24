@@ -17,6 +17,15 @@ For each configured target IPv4 address and DNSBL provider, the service:
 5. Sends one alert message through the enabled Telegram and/or Discord channels when any
    listing is detected.
 
+Provider-specific special return codes are interpreted explicitly. For example, Spamhaus
+public-mirror codes such as `127.255.255.252`, `127.255.255.254`, and `127.255.255.255`
+are treated as provider errors rather than real blacklist listings.
+
+Spamhaus also supports DQS routing. Keep `zen.spamhaus.org` in
+`MAIL_RBL_MONITOR_DNSBL_PROVIDERS`; if `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY` is set, the
+resolver switches Spamhaus queries internally to the DQS zone without changing the public
+provider identifier.
+
 The runtime stays small and explicit:
 
 - one-shot command, not a daemon
@@ -46,6 +55,7 @@ This project prefers direct DNS queries because they:
 - stable `--json` output for wrappers and schedulers
 - structured provider error classification
 - secret-safe operator-facing error handling
+- secret-safe outbound logging with `httpx` request-line logs suppressed
 - systemd templates and operator docs
 - pytest, ruff, mypy, and a minimal GitHub Actions CI workflow
 
@@ -77,6 +87,7 @@ Core settings:
 - `MAIL_RBL_MONITOR_TARGET_IPS`
 - `MAIL_RBL_MONITOR_TARGET_HOSTS`
 - `MAIL_RBL_MONITOR_DNSBL_PROVIDERS`
+- `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY`
 - `MAIL_RBL_MONITOR_TIMEOUT_SECONDS`
 - `MAIL_RBL_MONITOR_DRY_RUN`
 
@@ -109,6 +120,15 @@ outputs.
 `MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS` is the canonical public setting.
 The older `MAIL_RBL_MONITOR_INCLUDE_UTC_TIMESTAMP_IN_ALERTS` name is still accepted as
 a backward-compatible alias and is documented as deprecated.
+
+To enable Spamhaus DQS, set:
+
+```text
+MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY=<YOUR_SPAMHAUS_DQS_KEY>
+```
+
+Leave that variable blank to keep using the public mirror. Do not replace
+`zen.spamhaus.org` in the provider list, and do not commit a real key.
 
 The alert timezone uses an IANA timezone such as `Europe/Kyiv`. Timezone conversion uses
 the Python standard library `zoneinfo` module, so DST and seasonal offset changes are
@@ -154,7 +174,9 @@ MAIL_RBL_MONITOR_DRY_RUN=false uv run mail-rbl-monitor --json
 ```
 
 `--json` writes one stable JSON document to stdout while logs continue to go to stderr.
-Secrets are never included in the JSON payload.
+Secrets are never included in the JSON payload. If Spamhaus DQS is enabled, serialized
+query names use a stable redacted form such as
+`222.71.243.136.<spamhaus-dqs>.zen.dq.spamhaus.net`.
 
 ## Exit codes
 

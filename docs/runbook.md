@@ -37,6 +37,33 @@ Machine-readable run:
 uv run mail-rbl-monitor --json
 ```
 
+## Spamhaus DQS verification
+
+1. Keep `zen.spamhaus.org` in `MAIL_RBL_MONITOR_DNSBL_PROVIDERS`.
+2. Set `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY` in the deployment env file.
+3. Run a dry-run first to validate the rest of the configuration:
+
+```bash
+uv run mail-rbl-monitor --dry-run
+```
+
+4. Perform a real run after the env file is in place:
+
+```bash
+uv run mail-rbl-monitor
+```
+
+5. If you need to verify the DQS path manually, use placeholder-only commands like:
+
+```bash
+dig +short 2.0.0.127.<YOUR_SPAMHAUS_DQS_KEY>.zen.dq.spamhaus.net A
+dig +short 2.0.0.127.<YOUR_SPAMHAUS_DQS_KEY>.zen.dq.spamhaus.net TXT
+```
+
+Do not paste a real DQS key into docs, tests, issue trackers, or CI logs.
+In application JSON output, a Spamhaus result may also show `provider_mode: "dqs"` with
+a redacted query name.
+
 ## Exit code interpretation
 
 - `0`: completed successfully, no listings found
@@ -73,8 +100,9 @@ Failure payloads include:
 
 1. Review the `error_kind` values in logs or JSON.
 2. Confirm the resolver host has healthy DNS connectivity.
-3. Re-run manually before assuming the target IP is clean.
-4. Treat the run as degraded coverage, not a clean pass.
+3. If Spamhaus DQS is enabled, verify the key is present and valid in the env file.
+4. Re-run manually before assuming the target IP is clean.
+5. Treat the run as degraded coverage, not a clean pass.
 
 ### Notification failure
 

@@ -18,6 +18,7 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD",
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
+    "MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY",
     "MAIL_RBL_MONITOR_HOST_LABEL",
     "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
     "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
@@ -42,6 +43,7 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_TELEGRAM", "false")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_DISCORD", "false")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "true")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ALERT_TIMEZONE", "Etc/UTC")
     monkeypatch.setenv("MAIL_RBL_MONITOR_TIMEOUT_SECONDS", "5")

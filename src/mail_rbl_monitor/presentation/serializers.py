@@ -6,7 +6,7 @@ from typing import NotRequired, TypedDict
 from mail_rbl_monitor import __version__
 from mail_rbl_monitor.constants import APP_NAME
 from mail_rbl_monitor.domain.enums import NotificationChannel
-from mail_rbl_monitor.domain.models import RunSummary
+from mail_rbl_monitor.domain.models import ProviderCheckResult, RunSummary
 from mail_rbl_monitor.infrastructure.providers.catalog import get_provider_metadata
 
 
@@ -14,6 +14,7 @@ class ProviderResultPayload(TypedDict):
     provider: str
     provider_display_name: str
     query_name: str
+    provider_mode: NotRequired[str]
     status: str
     listed_addresses: list[str]
     txt_reasons: list[str]
@@ -82,21 +83,7 @@ def serialize_run_summary(run_summary: RunSummary, *, exit_code: int) -> RunPayl
             {
                 "target_ip": str(target_result.target_ip),
                 "provider_results": [
-                    {
-                        "provider": provider_result.provider.name,
-                        "provider_display_name": get_provider_metadata(
-                            provider_result.provider
-                        ).display_name,
-                        "query_name": provider_result.query_name,
-                        "status": provider_result.status.value,
-                        "listed_addresses": list(provider_result.listed_addresses),
-                        "txt_reasons": list(provider_result.txt_reasons),
-                        "error_message": provider_result.error_message,
-                        "error_kind": provider_result.error_kind.value
-                        if provider_result.error_kind is not None
-                        else None,
-                        "latency_ms": provider_result.latency_ms,
-                    }
+                    _serialize_provider_result(provider_result)
                     for provider_result in target_result.provider_results
                 ],
             }
@@ -154,6 +141,25 @@ def serialize_failure(
         "exit_code": exit_code,
         "error": error_payload,
     }
+
+
+def _serialize_provider_result(provider_result: ProviderCheckResult) -> ProviderResultPayload:
+    payload: ProviderResultPayload = {
+        "provider": provider_result.provider.name,
+        "provider_display_name": get_provider_metadata(provider_result.provider).display_name,
+        "query_name": provider_result.query_name,
+        "status": provider_result.status.value,
+        "listed_addresses": list(provider_result.listed_addresses),
+        "txt_reasons": list(provider_result.txt_reasons),
+        "error_message": provider_result.error_message,
+        "error_kind": provider_result.error_kind.value
+        if provider_result.error_kind is not None
+        else None,
+        "latency_ms": provider_result.latency_ms,
+    }
+    if provider_result.provider_mode is not None:
+        payload["provider_mode"] = provider_result.provider_mode.value
+    return payload
 
 
 def dump_json_payload(payload: RunPayload) -> str:

@@ -141,6 +141,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str | None = None
     enable_discord: bool = False
     discord_webhook_url: SecretStr | None = None
+    spamhaus_dqs_key: SecretStr | None = None
     host_label: str | None = None
     include_hostname_in_alerts: bool = True
     include_checked_at_in_alerts: bool = Field(
@@ -254,6 +255,7 @@ class Settings(BaseSettings):
         "telegram_bot_token",
         "telegram_chat_id",
         "discord_webhook_url",
+        "spamhaus_dqs_key",
         "host_label",
         mode="before",
     )
@@ -297,6 +299,8 @@ class Settings(BaseSettings):
             secret_values.append(self.telegram_bot_token.get_secret_value())
         if self.discord_webhook_url is not None:
             secret_values.append(self.discord_webhook_url.get_secret_value())
+        if self.spamhaus_dqs_key is not None:
+            secret_values.append(self.spamhaus_dqs_key.get_secret_value())
 
         return tuple(value for value in secret_values if value)
 

@@ -16,6 +16,7 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD",
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
+    "MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY",
     "MAIL_RBL_MONITOR_HOST_LABEL",
     "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
     "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
@@ -43,6 +44,7 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_DISCORD", "false")
     monkeypatch.setenv("MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL", "")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_HOST_LABEL", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "true")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ALERT_TIMEZONE", "Etc/UTC")
@@ -67,6 +69,47 @@ def test_settings_parses_single_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.include_hostname_in_alerts is True
     assert settings.include_checked_at_in_alerts is True
     assert settings.alert_timezone == "Etc/UTC"
+    assert settings.spamhaus_dqs_key is None
+
+
+def test_settings_treats_blank_spamhaus_dqs_key_as_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY", "  ")
+
+    settings = load_settings()
+
+    assert settings.spamhaus_dqs_key is None
+
+
+def test_settings_accepts_configured_spamhaus_dqs_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv(
+        "MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY",
+        "test_dqs_key_1234567890abcdef123456",
+    )
+
+    settings = load_settings()
+
+    assert settings.spamhaus_dqs_key is not None
+    assert settings.spamhaus_dqs_key.get_secret_value() == "test_dqs_key_1234567890abcdef123456"
+
+
+def test_operator_secret_values_include_spamhaus_dqs_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv(
+        "MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY",
+        "test_dqs_key_1234567890abcdef123456",
+    )
+
+    settings = load_settings()
+
+    assert "test_dqs_key_1234567890abcdef123456" in settings.operator_secret_values()
 
 
 def test_settings_parse_target_hosts_mapping(monkeypatch: pytest.MonkeyPatch) -> None:

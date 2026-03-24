@@ -14,11 +14,18 @@ class ListingStatus(StrEnum):
 
 
 class ProviderErrorKind(StrEnum):
+    OPEN_RESOLVER = "open_resolver"
     TIMEOUT = "timeout"
     NO_ANSWER = "no_answer"
     NO_NAMESERVERS = "no_nameservers"
     DNS_EXCEPTION = "dns_exception"
     UNEXPECTED = "unexpected"
+
+
+class ProviderMode(StrEnum):
+    STANDARD = "standard"
+    PUBLIC_MIRROR = "public_mirror"
+    DQS = "dqs"
 
 
 class NotificationChannel(StrEnum):

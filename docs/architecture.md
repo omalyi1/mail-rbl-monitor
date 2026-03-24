@@ -34,6 +34,7 @@ The settings boundary is responsible for:
 - parsing comma-separated IPv4 targets and provider domains
 - validating timeout bounds
 - enforcing notifier credentials only when a notifier is enabled
+- accepting an optional Spamhaus DQS key without requiring provider-list changes
 - validating alert presentation options such as timezone
 - converting validated config into a runtime summary for the application layer
 
@@ -70,6 +71,11 @@ The DNS adapter uses `dnspython` directly:
 - `NXDOMAIN` means the target is clean for that provider
 - `TXT` lookups are best-effort and only attempted after a positive listing
 - provider failures are never silently treated as clean
+- Spamhaus keeps `zen.spamhaus.org` as the canonical configured provider ID
+- when `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY` is configured, Spamhaus query routing switches
+  internally to `<key>.zen.dq.spamhaus.net`
+- operator-facing query names stay redacted, for example
+  `222.71.243.136.<spamhaus-dqs>.zen.dq.spamhaus.net`
 
 Provider failure classification stays intentionally small and operational:
 
@@ -100,6 +106,8 @@ Operator-facing outputs are redacted where needed:
 - secrets are never logged intentionally
 - secrets are never included in JSON output
 - notification failures are surfaced with stable operator-safe messages
+- Spamhaus DQS keys are treated as secrets and never exposed in logs, JSON, or result
+  models intended for operators
 
 This keeps public docs, scheduler integrations, and incident workflows safer without
 adding a large security abstraction layer.

@@ -10,6 +10,7 @@ from mail_rbl_monitor.domain.enums import (
     ListingStatus,
     NotificationChannel,
     ProviderErrorKind,
+    ProviderMode,
 )
 from mail_rbl_monitor.domain.exceptions import ConfigurationError
 
@@ -59,6 +60,7 @@ class ProviderCheckResult:
     provider: DnsblProvider
     query_name: str
     status: ListingStatus
+    provider_mode: ProviderMode | None = None
     listed_addresses: tuple[str, ...] = ()
     txt_reasons: tuple[str, ...] = ()
     error_message: str | None = None
