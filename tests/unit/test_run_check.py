@@ -13,6 +13,7 @@ from mail_rbl_monitor.domain.enums import (
     ListingStatus,
     NotificationChannel,
     ProviderErrorKind,
+    ProviderMode,
 )
 from mail_rbl_monitor.domain.exceptions import NotificationError
 from mail_rbl_monitor.domain.models import DnsblProvider, ProviderCheckResult, TargetIP
@@ -63,6 +64,7 @@ def _build_settings(
     enable_telegram: bool = False,
     enable_discord: bool = False,
     providers: list[str] | None = None,
+    spamhaus_dqs_key: str | None = None,
 ) -> Settings:
     return Settings.model_validate(
         {
@@ -76,6 +78,7 @@ def _build_settings(
             "telegram_chat_id": "123456" if enable_telegram else None,
             "enable_discord": enable_discord,
             "discord_webhook_url": "https://discord.example/webhook" if enable_discord else None,
+            "spamhaus_dqs_key": spamhaus_dqs_key,
             "alert_timezone": "Europe/Kyiv",
             "timeout_seconds": 5,
             "dry_run": dry_run,
@@ -155,6 +158,41 @@ def test_application_listed_run_sends_notifications_and_returns_listing_exit_cod
     assert "Spamhaus ZEN (zen.spamhaus.org)" in summary.alert_message
     assert telegram_sender.sent_messages == [summary.alert_message]
     assert discord_sender.sent_messages == [summary.alert_message]
+    assert determine_exit_code(summary) == ExitCode.LISTING_FOUND
+
+
+def test_application_dqs_enabled_run_keeps_normal_listing_exit_semantics() -> None:
+    settings = _build_settings(
+        dry_run=False,
+        enable_telegram=True,
+        spamhaus_dqs_key="test_dqs_key_1234567890abcdef123456",
+    )
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    provider = DnsblProvider.from_raw("zen.spamhaus.org")
+    resolver = FakeDnsResolver(
+        {
+            (str(target_ip), provider.name): ProviderCheckResult(
+                target_ip=target_ip,
+                provider=provider,
+                query_name="222.71.243.136.<spamhaus-dqs>.zen.dq.spamhaus.net",
+                status=ListingStatus.LISTED,
+                provider_mode=ProviderMode.DQS,
+                listed_addresses=("127.0.0.2",),
+                txt_reasons=("Spamhaus DQS listed",),
+                latency_ms=12,
+            )
+        }
+    )
+    sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
+
+    summary = run_check(settings, dns_resolver=resolver, notification_senders=(sender,))
+
+    assert summary.has_listings is True
+    assert summary.error_count == 0
+    assert summary.notifications_sent == (NotificationChannel.TELEGRAM,)
+    assert sender.sent_messages == [summary.alert_message]
+    assert summary.alert_message is not None
+    assert "test_dqs_key_1234567890abcdef123456" not in summary.alert_message
     assert determine_exit_code(summary) == ExitCode.LISTING_FOUND
 
 
@@ -276,6 +314,7 @@ def test_application_notification_failure_tracks_partial_delivery_and_redacts_se
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     discord_webhook_url = "https://discord.example/webhook/super-secret"
+    spamhaus_dqs_key = "test_dqs_key_1234567890abcdef123456"
     settings = Settings.model_validate(
         {
             "app_env": AppEnvironment.TEST,
@@ -288,6 +327,7 @@ def test_application_notification_failure_tracks_partial_delivery_and_redacts_se
             "telegram_chat_id": "123456",
             "enable_discord": True,
             "discord_webhook_url": discord_webhook_url,
+            "spamhaus_dqs_key": spamhaus_dqs_key,
             "timeout_seconds": 5,
             "dry_run": False,
         }
@@ -303,7 +343,10 @@ def test_application_notification_failure_tracks_partial_delivery_and_redacts_se
     telegram_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
     discord_sender = FailingNotificationSender(
         NotificationChannel.DISCORD,
-        f"Discord notification delivery failed for webhook {discord_webhook_url}.",
+        (
+            "Discord notification delivery failed for webhook "
+            f"{discord_webhook_url} via {spamhaus_dqs_key}."
+        ),
     )
 
     caplog.set_level("INFO", logger="mail_rbl_monitor.run_check")
@@ -326,8 +369,10 @@ def test_application_notification_failure_tracks_partial_delivery_and_redacts_se
     assert str(error).startswith("Discord notification delivery failed")
     assert "[REDACTED]" in str(error)
     assert discord_webhook_url not in str(error)
+    assert spamhaus_dqs_key not in str(error)
     assert telegram_sender.sent_messages
     assert discord_webhook_url not in caplog.text
+    assert spamhaus_dqs_key not in caplog.text
 
     failure_record = next(
         record

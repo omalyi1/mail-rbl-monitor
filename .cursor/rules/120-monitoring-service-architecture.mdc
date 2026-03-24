@@ -20,6 +20,9 @@ This repository is a focused mail reputation monitoring service, not a generic m
 ## Service design
 - Use DNSBL DNS queries, not website scraping, browser automation, or HTML parsing.
 - Keep DNSBL checks provider-driven and testable.
+- Preserve canonical provider identifiers in config; provider-specific routing such as
+  Spamhaus DQS should happen internally rather than requiring user-facing provider-name
+  changes.
 - Treat provider failures explicitly; do not silently downgrade DNS failures to clean results.
 - Keep provider failure classification small, explicit, and operationally useful.
 - Keep notification channels behind adapters and ports.
@@ -40,4 +43,6 @@ This repository is a focused mail reputation monitoring service, not a generic m
 - Do not add retries, deduplication, persistence, or broader platform features without an explicit request.
 - Keep logs structured and operationally useful.
 - Never log secrets, tokens, or webhook URLs.
+- Treat DNS-provider credentials such as Spamhaus DQS keys as secrets and keep them out
+  of logs, JSON payloads, and operator-facing result models.
 - Do not introduce long-running service behavior without an explicit user request.

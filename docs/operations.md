@@ -42,7 +42,8 @@ The JSON payload includes:
 - exit code
 - operator-safe error information for failure paths
 
-Secrets are never included in JSON output.
+Secrets are never included in JSON output. If Spamhaus DQS is enabled, serialized query
+names stay redacted rather than exposing the real key.
 
 ## Exit codes
 
@@ -71,6 +72,7 @@ If a listing is found and notification delivery fails, the process exits with `1
 - listing notifications are not sent for provider-error-only runs
 - for Spamhaus public mirrors, `127.255.255.252`, `127.255.255.254`, and
   `127.255.255.255` are treated as provider errors, not blacklist listings
+- Spamhaus DQS mode does not reuse those public-mirror special-code rules automatically
 
 ### Notification failure
 
@@ -98,9 +100,33 @@ Provider failures are classified explicitly:
 
 - keep runtime env files out of version control
 - inject notifier credentials through environment variables
+- treat `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY` as a secret
 - never place Telegram bot tokens or Discord webhook URLs in docs, scripts, or source
   files
 - rotate credentials if they are ever exposed
+
+## Spamhaus DQS
+
+Keep `zen.spamhaus.org` in `MAIL_RBL_MONITOR_DNSBL_PROVIDERS`. To enable DQS, set:
+
+```bash
+MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY=<YOUR_SPAMHAUS_DQS_KEY>
+```
+
+Leave the key blank to use the existing public-mirror behavior.
+If the key is missing, invalid, or unusable, Spamhaus may surface as a provider error
+rather than a listing.
+
+Manual operator verification with placeholders only:
+
+```bash
+dig +short 2.0.0.127.<YOUR_SPAMHAUS_DQS_KEY>.zen.dq.spamhaus.net A
+dig +short 2.0.0.127.<YOUR_SPAMHAUS_DQS_KEY>.zen.dq.spamhaus.net TXT
+```
+
+If DQS is active in the application, operator-facing results still use redacted query
+names such as `2.0.0.127.<spamhaus-dqs>.zen.dq.spamhaus.net`. JSON output may also show
+`provider_mode: "dqs"` for the Spamhaus provider result.
 
 More detailed operational notes live in [`docs/security.md`](security.md).
 

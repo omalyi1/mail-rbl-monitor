@@ -22,6 +22,12 @@ class ProviderErrorKind(StrEnum):
     UNEXPECTED = "unexpected"
 
 
+class ProviderMode(StrEnum):
+    STANDARD = "standard"
+    PUBLIC_MIRROR = "public_mirror"
+    DQS = "dqs"
+
+
 class NotificationChannel(StrEnum):
     TELEGRAM = "telegram"
     DISCORD = "discord"

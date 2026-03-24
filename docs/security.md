@@ -10,6 +10,8 @@ reporting expectations live in [`SECURITY.md`](../SECURITY.md).
 - leave secret fields blank in examples such as [`.env.prod.example`](../.env.prod.example)
 - inject Telegram bot tokens and Discord webhook URLs through environment files or a
   secure secret manager
+- treat `MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY` as a secret and store it the same way
+- never print a real DQS key in CI logs, issue templates, or pasted troubleshooting output
 
 ## Least-privilege deployment
 
@@ -26,11 +28,13 @@ reporting expectations live in [`SECURITY.md`](../SECURITY.md).
 - alert messages include operational context, but not credentials or secret URLs
 - outbound `httpx` and `httpcore` request-line logs are suppressed at operator-facing log
   levels so request URLs do not leak Telegram bot tokens or Discord webhook paths
+- Spamhaus DQS query names are redacted in operator-facing results and JSON output
 
 ## What not to commit
 
 - Telegram bot tokens
 - Discord webhook URLs
+- Spamhaus DQS keys
 - copied production env files
 - shell history snippets containing secrets
 
@@ -38,4 +42,5 @@ reporting expectations live in [`SECURITY.md`](../SECURITY.md).
 
 - use dry-run to validate configuration before enabling live notifications
 - if notification delivery fails, treat the run as failed even if a listing was found
+- never paste a real DQS key into `dig` examples, issue trackers, or CI output
 - rotate credentials if they are ever pasted into chat, logs, or issue trackers

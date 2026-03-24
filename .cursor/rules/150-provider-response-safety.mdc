@@ -21,6 +21,10 @@ alwaysApply: false
 - For Spamhaus public mirrors, `127.255.255.252`, `127.255.255.254`, and `127.255.255.255` must not be treated as real listings.
 - Preserve explicit error classification for Spamhaus-style special return codes such as `open_resolver` where the provider response indicates an infrastructure problem rather than a reputation listing.
 - Provider special return codes must be classified as provider errors, not `listed` and not silently downgraded to `clean`.
+- Keep `zen.spamhaus.org` as the canonical configured provider ID even when Spamhaus DQS
+  routing is enabled internally.
+- Public-mirror special return-code handling must be mode-aware and must not be applied to
+  Spamhaus DQS lookups unless explicitly justified.
 
 ## Notification behavior
 - Provider-error-only runs must not trigger listing notifications.
@@ -34,10 +38,13 @@ alwaysApply: false
 - Outbound HTTP client logging must never expose secrets such as Telegram bot tokens or Discord webhook URLs.
 - Keep `httpx` / `httpcore` request-line logs suppressed or safely redacted at operator-facing log levels.
 - Do not rely on “nobody will read the logs” assumptions.
+- Treat Spamhaus DQS keys as secrets with the same care as notifier credentials.
 
 ## Operator-facing safety
 - Exceptions, JSON payloads, and logs must remain secret-safe.
 - Do not surface raw secret-bearing URLs or tokens from upstream exceptions.
+- Do not expose raw DQS query names; use stable redacted forms in result models, logs, and
+  JSON payloads.
 - Preserve concise, actionable, operator-friendly failure messages.
 
 ## Regression coverage

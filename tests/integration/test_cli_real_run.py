@@ -23,6 +23,7 @@ _ENV_KEYS = (
     "MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID",
     "MAIL_RBL_MONITOR_ENABLE_DISCORD",
     "MAIL_RBL_MONITOR_DISCORD_WEBHOOK_URL",
+    "MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY",
     "MAIL_RBL_MONITOR_HOST_LABEL",
     "MAIL_RBL_MONITOR_INCLUDE_HOSTNAME_IN_ALERTS",
     "MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS",
@@ -85,6 +86,7 @@ def _set_real_run_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAIL_RBL_MONITOR_TELEGRAM_BOT_TOKEN", "telegram-token")
     monkeypatch.setenv("MAIL_RBL_MONITOR_TELEGRAM_CHAT_ID", "123456")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ENABLE_DISCORD", "false")
+    monkeypatch.setenv("MAIL_RBL_MONITOR_SPAMHAUS_DQS_KEY", "")
     monkeypatch.setenv("MAIL_RBL_MONITOR_INCLUDE_CHECKED_AT_IN_ALERTS", "true")
     monkeypatch.setenv("MAIL_RBL_MONITOR_ALERT_TIMEZONE", "Etc/UTC")
     monkeypatch.setenv("MAIL_RBL_MONITOR_TIMEOUT_SECONDS", "5")
@@ -110,7 +112,8 @@ def test_cli_real_run_returns_listing_exit_code_with_mocked_dependencies(
     fake_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
 
     monkeypatch.setattr(
-        "mail_rbl_monitor.application.run_check.DnsblResolver", lambda: fake_resolver
+        "mail_rbl_monitor.application.run_check.DnsblResolver",
+        lambda **kwargs: fake_resolver,
     )
     monkeypatch.setattr(
         "mail_rbl_monitor.application.run_check._build_notification_senders",
@@ -145,7 +148,8 @@ def test_cli_json_real_run_returns_valid_json_and_hides_secrets(
     fake_sender = FakeNotificationSender(NotificationChannel.TELEGRAM)
 
     monkeypatch.setattr(
-        "mail_rbl_monitor.application.run_check.DnsblResolver", lambda: fake_resolver
+        "mail_rbl_monitor.application.run_check.DnsblResolver",
+        lambda **kwargs: fake_resolver,
     )
     monkeypatch.setattr(
         "mail_rbl_monitor.application.run_check._build_notification_senders",
@@ -192,7 +196,8 @@ def test_cli_json_notification_failure_returns_failure_payload_without_secrets(
     )
 
     monkeypatch.setattr(
-        "mail_rbl_monitor.application.run_check.DnsblResolver", lambda: fake_resolver
+        "mail_rbl_monitor.application.run_check.DnsblResolver",
+        lambda **kwargs: fake_resolver,
     )
     monkeypatch.setattr(
         "mail_rbl_monitor.application.run_check._build_notification_senders",

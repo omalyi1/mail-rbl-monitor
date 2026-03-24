@@ -4,6 +4,7 @@ from mail_rbl_monitor.domain.enums import (
     ListingStatus,
     NotificationChannel,
     ProviderErrorKind,
+    ProviderMode,
 )
 from mail_rbl_monitor.domain.models import (
     AppRuntimeConfigSummary,
@@ -14,7 +15,11 @@ from mail_rbl_monitor.domain.models import (
     TargetCheckResult,
     TargetIP,
 )
-from mail_rbl_monitor.presentation.serializers import serialize_failure, serialize_run_summary
+from mail_rbl_monitor.presentation.serializers import (
+    dump_json_payload,
+    serialize_failure,
+    serialize_run_summary,
+)
 
 
 def _build_runtime_config(*, dry_run: bool) -> AppRuntimeConfigSummary:
@@ -43,14 +48,17 @@ def _build_provider_result(
     *,
     status: ListingStatus,
     error_kind: ProviderErrorKind | None = None,
+    provider_mode: ProviderMode | None = None,
+    query_name: str = "222.71.243.136.zen.spamhaus.org",
 ) -> ProviderCheckResult:
     target_ip = TargetIP.from_raw("136.243.71.222")
     provider = DnsblProvider.from_raw("zen.spamhaus.org")
     return ProviderCheckResult(
         target_ip=target_ip,
         provider=provider,
-        query_name="222.71.243.136.zen.spamhaus.org",
+        query_name=query_name,
         status=status,
+        provider_mode=provider_mode,
         listed_addresses=("127.0.0.2",) if status == ListingStatus.LISTED else (),
         txt_reasons=("Spamhaus listed",) if status == ListingStatus.LISTED else (),
         error_message="DNS query timed out." if status == ListingStatus.ERROR else None,
@@ -109,7 +117,12 @@ def test_serialize_run_summary_listing_found_shape() -> None:
         target_results=(
             TargetCheckResult(
                 target_ip=target_ip,
-                provider_results=(_build_provider_result(status=ListingStatus.LISTED),),
+                provider_results=(
+                    _build_provider_result(
+                        status=ListingStatus.LISTED,
+                        provider_mode=ProviderMode.PUBLIC_MIRROR,
+                    ),
+                ),
             ),
         ),
         notifications_sent=(NotificationChannel.TELEGRAM,),
@@ -123,6 +136,7 @@ def test_serialize_run_summary_listing_found_shape() -> None:
     assert summary["listed_count"] == 1
     assert summary["notifications_sent"] == ["telegram"]
     assert payload["results"][0]["provider_results"][0]["provider_display_name"] == "Spamhaus ZEN"
+    assert payload["results"][0]["provider_results"][0]["provider_mode"] == "public_mirror"
 
 
 def test_serialize_run_summary_provider_error_shape() -> None:
@@ -170,6 +184,7 @@ def test_serialize_run_summary_spamhaus_open_resolver_is_error_not_listing() -> 
                         provider=provider,
                         query_name="222.71.243.136.zen.spamhaus.org",
                         status=ListingStatus.ERROR,
+                        provider_mode=ProviderMode.PUBLIC_MIRROR,
                         listed_addresses=("127.255.255.254",),
                         txt_reasons=("Error: open resolver",),
                         error_message=(
@@ -192,6 +207,34 @@ def test_serialize_run_summary_spamhaus_open_resolver_is_error_not_listing() -> 
     assert payload["summary"] is not None
     assert payload["summary"]["listed_count"] == 0
     assert payload["summary"]["error_count"] == 1
+
+
+def test_serialize_run_summary_dqs_result_uses_redacted_query_name() -> None:
+    target_ip = TargetIP.from_raw("136.243.71.222")
+    run_summary = RunSummary(
+        runtime_config=_build_runtime_config(dry_run=False),
+        checked_at_utc="2026-03-20T09:00:00Z",
+        host_label="mail-01",
+        target_results=(
+            TargetCheckResult(
+                target_ip=target_ip,
+                provider_results=(
+                    _build_provider_result(
+                        status=ListingStatus.LISTED,
+                        provider_mode=ProviderMode.DQS,
+                        query_name="222.71.243.136.<spamhaus-dqs>.zen.dq.spamhaus.net",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    payload = serialize_run_summary(run_summary, exit_code=int(ExitCode.LISTING_FOUND))
+    provider_payload = payload["results"][0]["provider_results"][0]
+
+    assert provider_payload["provider_mode"] == "dqs"
+    assert provider_payload["query_name"] == "222.71.243.136.<spamhaus-dqs>.zen.dq.spamhaus.net"
+    assert "test_dqs_key_1234567890abcdef123456" not in dump_json_payload(payload)
 
 
 def test_serialize_failure_includes_notification_failure_fields() -> None:
